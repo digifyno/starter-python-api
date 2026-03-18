@@ -42,3 +42,26 @@ def test_unhandled_exception_returns_generic_500():
     response = error_client.get("/_test/raise-error")
     assert response.status_code == 500
     assert response.json() == {"detail": "Internal server error"}
+
+
+def test_docs_inaccessible_in_production():
+    """Swagger UI, ReDoc, and OpenAPI schema are disabled when debug=False."""
+    from main import settings
+
+    if not settings.debug:
+        assert client.get("/docs").status_code == 404
+        assert client.get("/redoc").status_code == 404
+        assert client.get("/openapi.json").status_code == 404
+
+
+def test_docs_accessible_in_debug(monkeypatch):
+    """Swagger UI, ReDoc, and OpenAPI schema are available when debug=True."""
+    monkeypatch.setenv("DEBUG", "true")
+    from importlib import reload
+    import main as main_module
+
+    reload(main_module)
+    debug_client = TestClient(main_module.app)
+    assert debug_client.get("/docs").status_code == 200
+    assert debug_client.get("/redoc").status_code == 200
+    assert debug_client.get("/openapi.json").status_code == 200

@@ -51,6 +51,10 @@ app = FastAPI(
     version="1.0.0",
     debug=settings.debug,
     lifespan=lifespan,
+    # Disable interactive docs in production to avoid schema exposure
+    docs_url="/docs" if settings.debug else None,
+    redoc_url="/redoc" if settings.debug else None,
+    openapi_url="/openapi.json" if settings.debug else None,
 )
 
 # 1. CORS — reads from settings.allowed_origins (not wildcard!)
@@ -182,6 +186,26 @@ async def create_item(item: Item):
 async def get_item(item_id: int):
     """Get item by ID"""
     return {"item_id": item_id, "name": f"Item {item_id}", "price": 99.99}
+
+
+# EXAMPLE: Use async def for I/O-bound routes (DB queries, HTTP calls).
+# async routes are non-blocking — the event loop can handle other requests
+# while waiting for I/O to complete.
+#
+# @app.get("/api/example-async")
+# async def example_async_route():
+#     # await db.fetch_one(query)        ← non-blocking DB call
+#     # await httpx_client.get(url)      ← non-blocking HTTP call
+#     return {"message": "Hello from async route"}
+#
+# EXAMPLE: Use def (sync) only for CPU-bound work or sync-only libraries.
+# FastAPI automatically runs sync routes in a threadpool to avoid blocking
+# the event loop.
+#
+# @app.get("/api/example-sync")
+# def example_sync_route():
+#     # result = some_sync_library.compute()  ← CPU-bound or sync-only library
+#     return {"message": "Hello from sync route"}
 
 
 if __name__ == "__main__":
