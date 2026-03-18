@@ -22,6 +22,9 @@ python main.py
 # Or:
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
+# Run tests
+pytest tests/
+
 # Freeze dependencies
 pip freeze > requirements.txt
 ```
@@ -31,6 +34,7 @@ pip freeze > requirements.txt
 ```
 main.py              # FastAPI app
 requirements.txt     # Dependencies
+tests/              # Test files
 dist/               # Static files (optional)
 ```
 
@@ -165,20 +169,25 @@ app.add_middleware(
 
 ### JWT Tokens
 ```bash
-pip install python-jose[cryptography] passlib[bcrypt]
+pip install PyJWT bcrypt
 ```
 
 ```python
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+import jwt
+import bcrypt
+from jwt.exceptions import InvalidTokenError
 
-pwd_context = CryptContext(schemes=["bcrypt"])
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
-def verify_password(plain, hashed):
-    return pwd_context.verify(plain, hashed)
+def verify_password(plain: str, hashed: str) -> bool:
+    return bcrypt.checkpw(plain.encode(), hashed.encode())
 
-def create_access_token(data: dict):
-    return jwt.encode(data, SECRET_KEY, algorithm="HS256")
+def create_access_token(data: dict, secret_key: str) -> str:
+    return jwt.encode(data, secret_key, algorithm="HS256")
+
+def decode_access_token(token: str, secret_key: str) -> dict:
+    return jwt.decode(token, secret_key, algorithms=["HS256"])
 ```
 
 ## Testing
