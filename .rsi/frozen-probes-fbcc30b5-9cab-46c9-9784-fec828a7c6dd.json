@@ -1,0 +1,1 @@
+[{"id":"requirements-exists","name":"Requirements file exists","path":"requirements.txt","type":"file_exists","enabled":true,"runWhen":"pre","timeoutMs":5000,"failureMode":"block"},{"id":"main-exists","name":"Main entry point exists","path":"main.py","type":"file_exists","enabled":true,"runWhen":"pre","timeoutMs":5000,"failureMode":"block"}]
