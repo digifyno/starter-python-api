@@ -1,11 +1,13 @@
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -27,6 +29,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+STARTUP_TIME = time.time()
 
 
 @asynccontextmanager
@@ -57,12 +61,28 @@ if os.path.exists("dist"):
     app.mount("/static", StaticFiles(directory="dist"), name="static")
 
 
+# Exception handlers
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": exc.errors(),
+            "body": exc.body,
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled exception for %s %s", request.method, request.url)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
+
+
 # Models
-class HealthResponse(BaseModel):
-    status: str
-    message: str
-
-
 class Item(BaseModel):
     name: str
     description: str | None = None
@@ -84,10 +104,13 @@ async def root():
     }
 
 
-@app.get("/health", response_model=HealthResponse)
-async def health():
-    """Health check endpoint"""
-    return HealthResponse(status="healthy", message="API is running")
+@app.get("/health", tags=["health"])
+async def health_check():
+    """Health check endpoint with uptime"""
+    return {
+        "status": "healthy",
+        "uptime_seconds": int(time.time() - STARTUP_TIME),
+    }
 
 
 @app.get("/api/hello")
