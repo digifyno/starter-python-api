@@ -15,7 +15,8 @@ python3 -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r requirements.txt          # production deps
+pip install -r requirements-dev.txt      # dev + test deps
 
 # Run development server (auto-reload enabled)
 python main.py

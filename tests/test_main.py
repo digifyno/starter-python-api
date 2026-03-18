@@ -4,26 +4,33 @@ from main import app
 client = TestClient(app)
 
 
-def test_health_check():
+def test_root():
     response = client.get("/")
     assert response.status_code == 200
 
 
-def test_health_returns_uptime_seconds():
+def test_health_check():
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
+    assert data["status"] == "healthy"
     assert "uptime_seconds" in data
     assert isinstance(data["uptime_seconds"], int)
     assert data["uptime_seconds"] >= 0
 
 
-def test_validation_error_includes_body():
-    response = client.post("/api/items", json={"invalid": "data"})
+def test_validation_error_returns_422():
+    response = client.post("/api/items", json={"price": "not-a-number"})
     assert response.status_code == 422
     data = response.json()
     assert "detail" in data
-    assert "body" in data  # Custom handler adds body field
+    assert "body" in data
+
+
+def test_security_headers():
+    response = client.get("/health")
+    assert response.headers.get("x-content-type-options") == "nosniff"
+    assert response.headers.get("x-frame-options") == "DENY"
 
 
 def test_unhandled_exception_returns_generic_500():
