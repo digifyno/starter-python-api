@@ -8,12 +8,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    app_name: str = "FastAPI Starter"
+    debug: bool = False
+    secret_key: str = "change-me-in-production"
+    allowed_origins: list[str] = ["http://localhost:3000"]
+
+
+settings = Settings()
 
 
 @asynccontextmanager
@@ -27,12 +40,13 @@ app = FastAPI(
     title="Python FastAPI Starter",
     description="A minimal FastAPI backend starter template",
     version="1.0.0",
+    debug=settings.debug,
     lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
