@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import time
@@ -84,6 +85,29 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(SecurityHeadersMiddleware)
+
+
+# 5. Request logging middleware — logs method, path, status, duration_ms as JSON.
+#    /health is excluded to reduce noise. No query params or body (no PII).
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path == "/health":
+            return await call_next(request)
+        start = time.perf_counter()
+        response = await call_next(request)
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        logger.info(
+            json.dumps({
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "duration_ms": duration_ms,
+            })
+        )
+        return response
+
+
+app.add_middleware(RequestLoggingMiddleware)
 
 # Serve static files from dist/ directory
 if os.path.exists("dist"):
