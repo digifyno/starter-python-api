@@ -169,10 +169,8 @@ app.add_middleware(
 ## Authentication
 
 ### JWT Tokens
-
-Install the auth extras first:
 ```bash
-pip install -r requirements-auth.txt
+pip install PyJWT bcrypt
 ```
 
 ```python

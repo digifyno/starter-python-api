@@ -101,16 +101,6 @@ pip install sqlalchemy psycopg2-binary
 pip install motor
 ```
 
-## Adding Authentication
-
-To add JWT authentication, install the auth extras:
-
-```bash
-pip install -r requirements-auth.txt
-```
-
-Then follow the auth patterns in `CLAUDE.md`.
-
 ## Production Deployment
 
 ```bash

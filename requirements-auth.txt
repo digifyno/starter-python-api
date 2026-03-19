@@ -1,3 +1,0 @@
-# Optional: JWT authentication
-PyJWT>=2.10.0
-bcrypt>=4.2.0
