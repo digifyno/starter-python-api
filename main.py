@@ -146,6 +146,26 @@ class Item(BaseModel):
     price: float
 
 
+class HealthResponse(BaseModel):
+    status: str
+    uptime_seconds: int
+
+
+class HelloResponse(BaseModel):
+    message: str
+
+
+class ItemResponse(BaseModel):
+    item_id: int
+    name: str
+    price: float
+
+
+class CreateItemResponse(BaseModel):
+    status: str
+    item: Item
+
+
 # Routes
 @app.get("/")
 async def root():
@@ -161,7 +181,7 @@ async def root():
     }
 
 
-@app.get("/health", tags=["health"])
+@app.get("/health", tags=["health"], response_model=HealthResponse)
 async def health_check():
     """Health check endpoint with uptime"""
     return {
@@ -170,19 +190,19 @@ async def health_check():
     }
 
 
-@app.get("/api/hello")
+@app.get("/api/hello", response_model=HelloResponse)
 async def hello():
     """Sample API endpoint"""
     return {"message": "Hello from FastAPI!"}
 
 
-@app.post("/api/items")
+@app.post("/api/items", response_model=CreateItemResponse, status_code=201)
 async def create_item(item: Item):
     """Create a new item"""
     return {"status": "created", "item": item}
 
 
-@app.get("/api/items/{item_id}")
+@app.get("/api/items/{item_id}", response_model=ItemResponse)
 async def get_item(item_id: int):
     """Get item by ID"""
     return {"item_id": item_id, "name": f"Item {item_id}", "price": 99.99}
