@@ -31,6 +31,11 @@ def test_security_headers():
     response = client.get("/health")
     assert response.headers.get("x-content-type-options") == "nosniff"
     assert response.headers.get("x-frame-options") == "DENY"
+    assert response.headers.get("x-xss-protection") == "0"
+    csp = response.headers.get("content-security-policy", "")
+    assert "default-src 'self'" in csp
+    assert "frame-ancestors 'none'" in csp
+    assert response.headers.get("permissions-policy") is not None
 
 
 def test_unhandled_exception_returns_generic_500():

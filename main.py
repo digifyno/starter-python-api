@@ -84,8 +84,21 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["X-XSS-Protection"] = "0"  # Disable legacy header (deprecated by browsers)
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "frame-ancestors 'none';"
+        )
+        response.headers["Permissions-Policy"] = (
+            "geolocation=(), microphone=(), camera=()"
+        )
+        # Note: Strict-Transport-Security (HSTS) is intentionally omitted here.
+        # HSTS must be set at the nginx/reverse-proxy level to avoid accidentally
+        # enabling HSTS on HTTP connections, which would break non-HTTPS environments.
         return response
 
 
