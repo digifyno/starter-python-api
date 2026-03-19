@@ -5,3 +5,4 @@ pydantic-settings>=2.0
 python-dotenv>=1.2.2
 PyJWT>=2.10.0
 bcrypt>=4.2.0
+slowapi>=0.1.9

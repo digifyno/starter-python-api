@@ -14,6 +14,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from starlette.middleware.base import BaseHTTPMiddleware
 
 logging.basicConfig(
@@ -29,13 +32,16 @@ class Settings(BaseSettings):
     app_name: str = "FastAPI Starter"
     debug: bool = False
     secret_key: str = "change-me-in-production"
-    allowed_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: list[str] = ["http://localhost:3000"]
     allowed_hosts: list[str] = ["*"]  # Override in production: ALLOWED_HOSTS=["yourdomain.com"]
+    rate_limit: str = "100/minute"  # Override via RATE_LIMIT env var
 
 
 settings = Settings()
 
 STARTUP_TIME = time.time()
+
+limiter = Limiter(key_func=get_remote_address, default_limits=[settings.rate_limit])
 
 
 @asynccontextmanager
@@ -56,14 +62,16 @@ app = FastAPI(
     redoc_url="/redoc" if settings.debug else None,
     openapi_url="/openapi.json" if settings.debug else None,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# 1. CORS — reads from settings.allowed_origins (not wildcard!)
+# 1. CORS — reads from settings.cors_origins (set via CORS_ORIGINS env var, not wildcard!)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins,
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # 2. GZip compression for responses > 1000 bytes
@@ -96,9 +104,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = (
             "geolocation=(), microphone=(), camera=()"
         )
-        # Note: Strict-Transport-Security (HSTS) is intentionally omitted here.
-        # HSTS must be set at the nginx/reverse-proxy level to avoid accidentally
-        # enabling HSTS on HTTP connections, which would break non-HTTPS environments.
+        # HSTS: enforce HTTPS for 1 year. Also configure at nginx level for
+        # preloading and to protect the initial HTTP request before redirect.
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
 
