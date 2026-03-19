@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     debug: bool = False
     secret_key: str = "change-me-in-production"
     allowed_origins: list[str] = ["http://localhost:3000"]
-    allowed_hosts: list[str] = ["*"]
+    allowed_hosts: list[str] = ["*"]  # Override in production: ALLOWED_HOSTS=["yourdomain.com"]
 
 
 settings = Settings()
@@ -69,6 +69,7 @@ app.add_middleware(
 # 2. GZip compression for responses > 1000 bytes
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+# In production, set ALLOWED_HOSTS=["yourdomain.com"] to restrict host header spoofing
 # 3. Trusted host validation (configure via settings in prod)
 if not settings.debug:
     app.add_middleware(
