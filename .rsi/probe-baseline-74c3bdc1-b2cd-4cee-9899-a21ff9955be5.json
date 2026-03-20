@@ -1,0 +1,1 @@
+[{"id":"requirements-exists","name":"Requirements file exists","passed":true,"output":"File exists: requirements.txt"},{"id":"main-exists","name":"Main entry point exists","passed":true,"output":"File exists: main.py"}]
