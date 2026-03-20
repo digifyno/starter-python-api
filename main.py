@@ -3,9 +3,10 @@ import logging
 import os
 import time
 from contextlib import asynccontextmanager
+from functools import lru_cache
 
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -38,6 +39,13 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Return cached Settings instance. Use with FastAPI Depends() for DI."""
+    return Settings()
+
 
 STARTUP_TIME = time.time()
 
@@ -188,6 +196,11 @@ class CreateItemResponse(BaseModel):
     item: Item
 
 
+class InfoResponse(BaseModel):
+    app_name: str
+    debug: bool
+
+
 # Routes
 @app.get("/")
 async def root():
@@ -210,6 +223,12 @@ async def health_check():
         "status": "healthy",
         "uptime_seconds": int(time.time() - STARTUP_TIME),
     }
+
+
+@app.get("/info", tags=["info"], response_model=InfoResponse)
+async def info(s: Settings = Depends(get_settings)):
+    """Application info — demonstrates pydantic-settings dependency injection."""
+    return {"app_name": s.app_name, "debug": s.debug}
 
 
 @app.get("/api/hello", response_model=HelloResponse)

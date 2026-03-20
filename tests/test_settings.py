@@ -42,3 +42,28 @@ def test_app_debug_matches_settings():
     from main import app, settings
 
     assert app.debug == settings.debug
+
+
+def test_get_settings_returns_settings_instance():
+    """get_settings() returns a Settings instance and is cached."""
+    from main import get_settings, Settings
+
+    s1 = get_settings()
+    s2 = get_settings()
+    assert isinstance(s1, Settings)
+    assert s1 is s2  # lru_cache returns same instance
+
+
+def test_info_route_uses_settings():
+    """GET /info returns app_name and debug from settings."""
+    from fastapi.testclient import TestClient
+    from main import app
+
+    client = TestClient(app)
+    response = client.get("/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert "app_name" in data
+    assert "debug" in data
+    assert data["app_name"] == "FastAPI Starter"
+    assert data["debug"] is False
