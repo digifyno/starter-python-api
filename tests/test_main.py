@@ -70,3 +70,12 @@ def test_docs_accessible_in_debug(monkeypatch):
     assert debug_client.get("/docs").status_code == 200
     assert debug_client.get("/redoc").status_code == 200
     assert debug_client.get("/openapi.json").status_code == 200
+
+
+def test_notify_returns_202():
+    response = client.post(
+        "/api/v1/notify",
+        json={"email": "test@example.com", "message": "Hello"},
+    )
+    assert response.status_code == 202
+    assert response.json() == {"status": "queued"}

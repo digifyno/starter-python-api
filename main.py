@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from functools import lru_cache
 
 import uvicorn
-from fastapi import Depends, FastAPI, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -216,6 +216,18 @@ class InfoResponse(BaseModel):
     debug: bool
 
 
+class NotificationRequest(BaseModel):
+    email: str
+    message: str
+
+
+# Background task function — simulates a fire-and-forget email notification.
+# async def can also be used here for non-blocking I/O in the background.
+def send_notification_email(email: str, message: str) -> None:
+    time.sleep(0.1)  # Simulate work (e.g., SMTP call)
+    print(f"Notification sent to {email!r}: {message!r}")
+
+
 # Routes
 @app.get("/")
 async def root():
@@ -262,6 +274,16 @@ async def create_item(item: Item):
 async def get_item(item_id: int):
     """Get item by ID"""
     return {"item_id": item_id, "name": f"Item {item_id}", "price": 99.99}
+
+
+# BackgroundTasks is appropriate for fast, fire-and-forget operations (email hooks,
+# audit logs) that don't need retries or persistence. For retries, persistence, or
+# distributed execution across processes/servers, use a proper task queue (Celery/ARQ).
+@app.post("/api/v1/notify", status_code=202)
+async def notify(notification: NotificationRequest, background_tasks: BackgroundTasks):
+    """Queue a fire-and-forget email notification."""
+    background_tasks.add_task(send_notification_email, notification.email, notification.message)
+    return {"status": "queued"}
 
 
 # EXAMPLE: Use async def for I/O-bound routes (DB queries, HTTP calls).

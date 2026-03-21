@@ -110,6 +110,22 @@ async def get_item(item_id: int):
     return database[item_id]
 ```
 
+### Background Tasks
+```python
+# Use BackgroundTasks for fire-and-forget work (email hooks, audit logs).
+# For retries, persistence, or distributed execution, use Celery or ARQ.
+from fastapi import BackgroundTasks
+
+def background_job(param: str):
+    # Can also be async def
+    ...
+
+@app.post("/api/v1/notify", status_code=202)
+async def notify(bg: BackgroundTasks):
+    bg.add_task(background_job, "value")
+    return {"status": "queued"}
+```
+
 ## Environment Variables
 
 ```python
