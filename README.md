@@ -26,7 +26,7 @@ python main.py
 # uvicorn main:app --reload
 
 # Visit http://localhost:8000
-# API docs: http://localhost:8000/docs
+# API docs: http://localhost:8000/docs (only available when DEBUG=true)
 ```
 
 ## Project Structure
@@ -53,8 +53,9 @@ python main.py
 
 FastAPI automatically generates two types of interactive API documentation:
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+- **Swagger UI**: http://localhost:8000/docs (only available when DEBUG=true)
+- **ReDoc**: http://localhost:8000/redoc (only available when DEBUG=true)
+- In production (DEBUG=false), API docs are disabled for security
 
 ## Adding Endpoints
 

@@ -250,9 +250,9 @@ WantedBy=multi-user.target
 
 ## Interactive Docs
 
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-- OpenAPI JSON: http://localhost:8000/openapi.json
+- Swagger UI: http://localhost:8000/docs (DEBUG=true only)
+- ReDoc: http://localhost:8000/redoc (DEBUG=true only)
+- OpenAPI JSON: http://localhost:8000/openapi.json (DEBUG=true only)
 
 ## Logging
 
