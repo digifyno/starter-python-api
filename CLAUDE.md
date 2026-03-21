@@ -238,6 +238,30 @@ WantedBy=multi-user.target
 - ReDoc: http://localhost:8000/redoc
 - OpenAPI JSON: http://localhost:8000/openapi.json
 
+## Logging
+
+All request logs are structured JSON via the `RequestLoggingMiddleware`. Every log entry includes a `request_id` for correlation:
+
+```json
+{"request_id": "550e8400-e29b-41d4-a716-446655440000", "method": "GET", "path": "/api/hello", "status": 200, "duration_ms": 12.5}
+```
+
+### Correlation ID pattern
+
+- If the client sends an `X-Request-ID` header, that value is used (pass-through for upstream correlation).
+- Otherwise a UUID4 is generated for the request.
+- The ID is stored on `request.state.request_id` so route handlers and exception handlers can access it.
+- The ID is echoed back in the `X-Request-ID` response header.
+- Exception handlers (`validation_exception_handler`, `generic_exception_handler`) include the `request_id` in the `X-Request-ID` response header and in the log message.
+
+```python
+# Access in route handlers or dependencies:
+@app.get("/api/example")
+async def example(request: Request):
+    request_id = getattr(request.state, "request_id", None)
+    ...
+```
+
 ## Resources
 
 - [FastAPI Docs](https://fastapi.tiangolo.com/)

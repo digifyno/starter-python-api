@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import time
+import uuid
 from contextlib import asynccontextmanager
 from functools import lru_cache
 
@@ -79,7 +80,7 @@ app.add_middleware(
     allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
 )
 
 # 2. GZip compression for responses > 1000 bytes
@@ -123,21 +124,26 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 # 5. Request logging middleware — logs method, path, status, duration_ms as JSON.
 #    /health is excluded to reduce noise. No query params or body (no PII).
+#    Generates or echoes X-Request-ID header for log correlation across services.
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.url.path == "/health":
             return await call_next(request)
+        request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+        request.state.request_id = request_id
         start = time.perf_counter()
         response = await call_next(request)
         duration_ms = round((time.perf_counter() - start) * 1000, 2)
         logger.info(
             json.dumps({
+                "request_id": request_id,
                 "method": request.method,
                 "path": request.url.path,
                 "status": response.status_code,
                 "duration_ms": duration_ms,
             })
         )
+        response.headers["X-Request-ID"] = request_id
         return response
 
 
@@ -151,21 +157,30 @@ if os.path.exists("dist"):
 # Exception handlers
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    request_id = getattr(request.state, "request_id", None)
     return JSONResponse(
         status_code=422,
         content={
             "detail": exc.errors(),
             "body": exc.body,
         },
+        headers={"X-Request-ID": request_id} if request_id else {},
     )
 
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
-    logger.exception("Unhandled exception for %s %s", request.method, request.url)
+    request_id = getattr(request.state, "request_id", None)
+    logger.exception(
+        "Unhandled exception for %s %s (request_id=%s)",
+        request.method,
+        request.url,
+        request_id,
+    )
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"},
+        headers={"X-Request-ID": request_id} if request_id else {},
     )
 
 
