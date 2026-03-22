@@ -1,4 +1,6 @@
 """Tests for pydantic-settings configuration."""
+import pytest
+from pydantic import ValidationError
 
 
 def test_settings_defaults():
@@ -8,7 +10,7 @@ def test_settings_defaults():
     s = Settings()
     assert s.app_name == "FastAPI Starter"
     assert s.debug is False
-    assert s.secret_key == "change-me-in-production"
+    assert s.secret_key == "change-me-in-production-not-for-real-use"
     assert "http://localhost:3000" in s.cors_origins
 
 
@@ -67,3 +69,36 @@ def test_info_route_uses_settings():
     assert "debug" in data
     assert data["app_name"] == "FastAPI Starter"
     assert data["debug"] is False
+
+
+def test_secret_key_too_short_raises_validation_error(monkeypatch):
+    """Settings raises ValidationError when SECRET_KEY is shorter than 32 characters."""
+    monkeypatch.setenv("SECRET_KEY", "tooshort")
+
+    from main import Settings
+
+    with pytest.raises(ValidationError) as exc_info:
+        Settings()
+
+    error_messages = str(exc_info.value)
+    assert "SECRET_KEY must be at least 32 characters" in error_messages
+
+
+def test_secret_key_exactly_32_chars_is_valid(monkeypatch):
+    """SECRET_KEY of exactly 32 characters passes validation."""
+    monkeypatch.setenv("SECRET_KEY", "a" * 32)
+
+    from main import Settings
+
+    s = Settings()
+    assert len(s.secret_key) == 32
+
+
+def test_secret_key_longer_than_32_chars_is_valid(monkeypatch):
+    """SECRET_KEY longer than 32 characters passes validation."""
+    monkeypatch.setenv("SECRET_KEY", "a" * 64)
+
+    from main import Settings
+
+    s = Settings()
+    assert len(s.secret_key) == 64

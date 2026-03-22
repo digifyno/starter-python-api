@@ -14,7 +14,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -33,10 +33,20 @@ class Settings(BaseSettings):
 
     app_name: str = "FastAPI Starter"
     debug: bool = False
-    secret_key: str = "change-me-in-production"
+    secret_key: str = "change-me-in-production-not-for-real-use"
     cors_origins: list[str] = ["http://localhost:3000"]
     allowed_hosts: list[str] = ["*"]  # Override in production: ALLOWED_HOSTS=["yourdomain.com"]
     rate_limit: str = "100/minute"  # Override via RATE_LIMIT env var
+
+    @field_validator('secret_key')
+    @classmethod
+    def secret_key_must_be_strong(cls, v: str) -> str:
+        if len(v) < 32:
+            raise ValueError(
+                'SECRET_KEY must be at least 32 characters. '
+                'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+            )
+        return v
 
 
 settings = Settings()

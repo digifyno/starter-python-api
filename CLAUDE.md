@@ -283,3 +283,14 @@ async def example(request: Request):
 - [FastAPI Docs](https://fastapi.tiangolo.com/)
 - [Pydantic Docs](https://docs.pydantic.dev/)
 - [SQLAlchemy Docs](https://docs.sqlalchemy.org/)
+
+## JWT Secret Key
+
+`SECRET_KEY` must be at least 32 characters. Shorter values cause a `ValidationError` at startup with an actionable message.
+
+Generate a strong key:
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Set it in `.env` or as an environment variable before starting the server.
