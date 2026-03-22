@@ -265,7 +265,13 @@ Set `RATE_LIMIT=60/minute` (or any [limits string](https://limits.readthedocs.io
 
 **Configuring trusted hosts (production):**
 
+Set `ALLOWED_HOSTS` in `.env` to a JSON array of permitted hostnames:
 
+```
+ALLOWED_HOSTS=["myapp.com","www.myapp.com"]
+```
+
+When `DEBUG=true`, `TrustedHostMiddleware` is disabled and all hosts are accepted. In production (`DEBUG=false`), requests with an unrecognized `Host` header receive a `400 Bad Request` response. If `ALLOWED_HOSTS` is not set, defaults to `["*"]` (all hosts accepted — restrict this in production).
 
 ## CORS (for frontend)
 
@@ -301,9 +307,8 @@ pip install PyJWT bcrypt
 ```
 
 > **Important**: `PyJWT` and `bcrypt` are in `requirements-dev.txt` as examples.
-> If you implement authentication, move them to `requirements.txt`:
-> `pip install PyJWT bcrypt` then `pip freeze >> requirements.txt`
-> or add them explicitly to `requirements.txt`.
+> These are example implementations — to use them in production, add `PyJWT` and `bcrypt`
+> to `requirements.txt` and remove them from `requirements-dev.txt`.
 
 ```python
 import jwt
