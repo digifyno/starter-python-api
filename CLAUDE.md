@@ -10,14 +10,20 @@
 ## Development Commands
 
 ```bash
-# Create virtual environment
+# Using uv (recommended)
+uv sync                     # create .venv and install all deps
+uv sync --group dev         # also install dev deps
+uv run python main.py       # run dev server without activating venv
+uv run pytest tests/        # run tests
+
+# Or with traditional pip/venv:
 python3 -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# Install dependencies
 pip install -r requirements.txt          # production deps
 pip install -r requirements-dev.txt      # dev + test deps
+```
 
+```bash
 # Run development server (auto-reload enabled)
 python main.py
 # Or:
