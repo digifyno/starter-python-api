@@ -10,6 +10,11 @@
 ## Development Commands
 
 ```bash
+# First-time setup
+cp .env.example .env        # copy template, then edit .env with your values
+```
+
+```bash
 # Using uv (recommended)
 uv sync                     # create .venv and install all deps
 uv sync --group dev         # also install dev deps
@@ -39,27 +44,45 @@ pip freeze > requirements.txt
 ## Project Structure
 
 ```
-main.py              # FastAPI app
-requirements.txt     # Dependencies
-tests/              # Test files
-dist/               # Static files (optional)
+main.py              # FastAPI app entry point
+database.py          # SQLAlchemy async engine, models, get_db dependency
+requirements.txt     # Production dependencies
+requirements-dev.txt # Dev/test dependencies
+tests/               # Test files
+dist/                # Static files (optional)
+.env.example         # Environment variable template
 ```
 
 ## Key Patterns
 
 ### Define Routes
+
+Use `APIRouter` to group related routes and register them in `main.py`. This keeps route logic modular as the codebase grows.
+
 ```python
-@app.get("/api/items")
+# routes/items.py
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/api/v1", tags=["items"])
+
+@router.get("/items")
 async def get_items():
     return {"items": []}
 
-@app.post("/api/items")
+@router.post("/items")
 async def create_item(item: Item):
     return {"created": item}
 
-@app.get("/api/items/{item_id}")
+@router.get("/items/{item_id}")
 async def get_item(item_id: int):
     return {"id": item_id}
+```
+
+Register in `main.py`:
+
+```python
+from routes.items import router as items_router
+app.include_router(items_router)
 ```
 
 ### Pydantic Models
@@ -214,6 +237,29 @@ from motor.motor_asyncio import AsyncIOMotorClient
 client = AsyncIOMotorClient("mongodb://localhost:27017")
 db = client.mydatabase
 ```
+
+## Middleware Stack
+
+Middleware is registered in `main.py` and executes in **reverse registration order** (last registered = outermost, processes requests first):
+
+| Order (request) | Middleware | Notes |
+|---|---|---|
+| 1st | RequestLoggingMiddleware | Structured JSON logs with `request_id`; skips `/health` |
+| 2nd | SecurityHeadersMiddleware | Sets `X-Frame-Options`, CSP, HSTS, etc. |
+| 3rd | TrustedHostMiddleware | **Production only** (skipped when `DEBUG=true`); validates `Host` header |
+| 4th | GZipMiddleware | Compresses responses ≥ 1000 bytes |
+| 5th | CORSMiddleware | Reads `ALLOWED_ORIGINS` env var (innermost) |
+| Per-route | slowapi rate limiter | Applied via `@limiter.limit()` decorator; default: 100/minute |
+
+**Configuring rate limits:**
+
+
+
+Set `RATE_LIMIT=60/minute` (or any [limits string](https://limits.readthedocs.io/en/stable/quickstart.html)) in `.env` to change the default. Per-route overrides use the `@limiter.limit()` decorator.
+
+**Configuring trusted hosts (production):**
+
+
 
 ## CORS (for frontend)
 
