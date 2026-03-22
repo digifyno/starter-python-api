@@ -39,6 +39,10 @@ pytest tests/
 
 # Freeze dependencies
 pip freeze > requirements.txt
+
+# Audit for known vulnerabilities
+uv run pip-audit
+# or: pip-audit -r requirements.txt
 ```
 
 ## Project Structure
@@ -294,13 +298,22 @@ ALLOWED_ORIGINS=["https://myapp.com","https://www.myapp.com"]
 pip install PyJWT bcrypt
 ```
 
+> **Important**: `PyJWT` and `bcrypt` are in `requirements-dev.txt` as examples.
+> If you implement authentication, move them to `requirements.txt`:
+> `pip install PyJWT bcrypt` then `pip freeze >> requirements.txt`
+> or add them explicitly to `requirements.txt`.
+
 ```python
 import jwt
 import bcrypt
 from jwt.exceptions import InvalidTokenError
 
 def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    # bcrypt work factor: target ~250ms on your production hardware
+    # Default 12 rounds is reasonable; increase to 13-14 for stricter security
+    # Benchmark: python -c "import bcrypt, time; t=time.time(); bcrypt.hashpw(b'test', bcrypt.gensalt(12)); print(time.time()-t)"
+    # Adjust rounds so hashing takes 100-300ms on your production server.
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
 
 def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
