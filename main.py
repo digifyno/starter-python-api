@@ -19,7 +19,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware
+
+from database import Base, TodoItem, engine, get_db
 
 logging.basicConfig(
     level=logging.INFO,
@@ -65,8 +69,14 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[settings.rate_lim
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Create tables when DATABASE_URL is configured.
+    # For production, use Alembic migrations instead of create_all.
+    if os.getenv("DATABASE_URL"):
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
     logger.info("Starting up")
     yield
+    await engine.dispose()
     logger.info("Shutting down")
 
 
@@ -315,6 +325,36 @@ async def notify(notification: NotificationRequest, background_tasks: Background
 #     # result = some_sync_library.compute()  ← CPU-bound or sync-only library
 #     return {"message": "Hello from sync route"}
 
+
+class TodoCreate(BaseModel):
+    title: str
+
+
+class TodoOut(BaseModel):
+    id: int
+    title: str
+    done: bool
+
+    model_config = {"from_attributes": True}
+
+
+# EXAMPLE: Async SQLAlchemy with dependency injection.
+# These routes demonstrate the async database pattern — adapt for your domain.
+@app.get("/api/todos", response_model=list[TodoOut], tags=["todos"])
+async def list_todos(db: AsyncSession = Depends(get_db)):
+    """List all todo items. Demonstrates async SQLAlchemy query via Depends(get_db)."""
+    result = await db.execute(select(TodoItem))
+    return result.scalars().all()
+
+
+@app.post("/api/todos", response_model=TodoOut, status_code=201, tags=["todos"])
+async def create_todo(todo: TodoCreate, db: AsyncSession = Depends(get_db)):
+    """Create a todo item. Demonstrates async SQLAlchemy write via Depends(get_db)."""
+    item = TodoItem(title=todo.title)
+    db.add(item)
+    await db.commit()
+    await db.refresh(item)
+    return item
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

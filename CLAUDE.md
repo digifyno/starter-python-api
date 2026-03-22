@@ -140,20 +140,61 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 ## Database Integration
 
-### SQLAlchemy (PostgreSQL)
+### SQLAlchemy (PostgreSQL) — async
+
+> **Important:** Use SQLAlchemy 2.x async with FastAPI — the synchronous `create_engine` API
+> blocks the event loop and will deadlock under concurrent requests.
+
 ```bash
-pip install sqlalchemy psycopg2-binary
+pip install sqlalchemy>=2.0 asyncpg
 ```
 
 ```python
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+# database.py
+import os
 
-SQLALCHEMY_DATABASE_URL = "postgresql://user:password@localhost/dbname"
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
-Base = declarative_base()
+from sqlalchemy import String
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:pass@localhost/db")
+
+engine = create_async_engine(DATABASE_URL, echo=False)
+AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+async def get_db() -> AsyncSession:
+    async with AsyncSessionLocal() as session:
+        yield session
+```
+
+Wire the engine into FastAPI's lifespan for clean startup/shutdown:
+
+```python
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Create tables when DATABASE_URL is configured.
+    # For production, use Alembic migrations instead of create_all.
+    if os.getenv("DATABASE_URL"):
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    yield
+    await engine.dispose()  # release connection pool on shutdown
+```
+
+Use `Depends(get_db)` in route handlers:
+
+```python
+from sqlalchemy import select
+
+@app.get("/api/items")
+async def list_items(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Item))
+    return result.scalars().all()
 ```
 
 ### MongoDB (Motor)

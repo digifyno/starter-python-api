@@ -5,3 +5,5 @@ python-dotenv>=1.2.2
 PyJWT>=2.10.0
 bcrypt>=4.2.0
 slowapi>=0.1.9
+sqlalchemy>=2.0.36
+asyncpg>=0.30.0
