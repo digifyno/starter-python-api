@@ -1,8 +1,10 @@
 import json
 import logging
+import math
 import os
 import time
 import uuid
+from collections import Counter
 from contextlib import asynccontextmanager
 from functools import lru_cache
 
@@ -48,6 +50,13 @@ class Settings(BaseSettings):
         if len(v) < 32:
             raise ValueError(
                 'SECRET_KEY must be at least 32 characters. '
+                'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+            )
+        counts = Counter(v)
+        entropy = -sum((c / len(v)) * math.log2(c / len(v)) for c in counts.values())
+        if entropy < 3.0:
+            raise ValueError(
+                'SECRET_KEY entropy too low — use a randomly generated key. '
                 'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
             )
         return v

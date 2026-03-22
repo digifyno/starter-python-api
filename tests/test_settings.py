@@ -85,8 +85,8 @@ def test_secret_key_too_short_raises_validation_error(monkeypatch):
 
 
 def test_secret_key_exactly_32_chars_is_valid(monkeypatch):
-    """SECRET_KEY of exactly 32 characters passes validation."""
-    monkeypatch.setenv("SECRET_KEY", "a" * 32)
+    """SECRET_KEY of exactly 32 characters with sufficient entropy passes validation."""
+    monkeypatch.setenv("SECRET_KEY", "abcdef0123456789abcdef0123456789")
 
     from main import Settings
 
@@ -95,10 +95,47 @@ def test_secret_key_exactly_32_chars_is_valid(monkeypatch):
 
 
 def test_secret_key_longer_than_32_chars_is_valid(monkeypatch):
-    """SECRET_KEY longer than 32 characters passes validation."""
-    monkeypatch.setenv("SECRET_KEY", "a" * 64)
+    """SECRET_KEY longer than 32 characters with sufficient entropy passes validation."""
+    monkeypatch.setenv("SECRET_KEY", "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789")
 
     from main import Settings
 
     s = Settings()
     assert len(s.secret_key) == 64
+
+
+def test_secret_key_low_entropy_all_same_char_raises_validation_error(monkeypatch):
+    """Settings raises ValidationError when SECRET_KEY is 32 repeated characters (zero entropy)."""
+    monkeypatch.setenv("SECRET_KEY", "a" * 32)
+
+    from main import Settings
+
+    with pytest.raises(ValidationError) as exc_info:
+        Settings()
+
+    error_messages = str(exc_info.value)
+    assert "entropy too low" in error_messages
+    assert "secrets.token_hex" in error_messages
+
+
+def test_secret_key_low_entropy_short_repeat_raises_validation_error(monkeypatch):
+    """Settings raises ValidationError when SECRET_KEY is a short repeating pattern."""
+    monkeypatch.setenv("SECRET_KEY", "abcdabcdabcdabcdabcdabcdabcdabcd")
+
+    from main import Settings
+
+    with pytest.raises(ValidationError) as exc_info:
+        Settings()
+
+    assert "entropy too low" in str(exc_info.value)
+
+
+def test_secret_key_high_entropy_hex_is_valid(monkeypatch):
+    """A randomly-generated hex token passes both length and entropy validation."""
+    import secrets
+    monkeypatch.setenv("SECRET_KEY", secrets.token_hex(32))
+
+    from main import Settings
+
+    s = Settings()
+    assert len(s.secret_key) == 64  # token_hex(32) produces 64 hex chars
