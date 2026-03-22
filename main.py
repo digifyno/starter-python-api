@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     app_name: str = "FastAPI Starter"
     debug: bool = False
     secret_key: str = "change-me-in-production-not-for-real-use"
-    cors_origins: list[str] = ["http://localhost:3000"]
+    allowed_origins: list[str] = ["http://localhost:3000"]  # Override via ALLOWED_ORIGINS env var
     allowed_hosts: list[str] = ["*"]  # Override in production: ALLOWED_HOSTS=["yourdomain.com"]
     rate_limit: str = "100/minute"  # Override via RATE_LIMIT env var
 
@@ -84,10 +84,10 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# 1. CORS — reads from settings.cors_origins (set via CORS_ORIGINS env var, not wildcard!)
+# 1. CORS — reads from settings.allowed_origins (set via ALLOWED_ORIGINS env var, not wildcard!)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
     allow_headers=["Authorization", "Content-Type", "X-Request-ID"],

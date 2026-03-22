@@ -170,16 +170,28 @@ db = client.mydatabase
 
 ## CORS (for frontend)
 
+CORS origins are configured via the `ALLOWED_ORIGINS` environment variable (see `.env.example`).
+Do not hardcode origins — use `settings.allowed_origins` instead:
+
 ```python
 from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=settings.allowed_origins,  # set via ALLOWED_ORIGINS env var
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
 )
+```
+
+In `.env` or environment:
+```
+# Development
+ALLOWED_ORIGINS=["http://localhost:3000"]
+
+# Production (comma-separated JSON array)
+ALLOWED_ORIGINS=["https://myapp.com","https://www.myapp.com"]
 ```
 
 ## Authentication
@@ -294,3 +306,4 @@ python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
 Set it in `.env` or as an environment variable before starting the server.
+

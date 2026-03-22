@@ -79,3 +79,21 @@ def test_notify_returns_202():
     )
     assert response.status_code == 202
     assert response.json() == {"status": "queued"}
+
+
+def test_cors_headers_for_allowed_origin():
+    """Requests from an allowed origin receive CORS headers."""
+    from main import settings
+
+    allowed_origin = settings.allowed_origins[0]
+    response = client.get("/health", headers={"Origin": allowed_origin})
+    assert response.headers.get("access-control-allow-origin") == allowed_origin
+
+
+def test_cors_wildcard_not_default():
+    """Default ALLOWED_ORIGINS does not include wildcard — wildcard requires explicit opt-in."""
+    from main import settings
+
+    assert "*" not in settings.allowed_origins, (
+        "Wildcard CORS origin should not be a default — set ALLOWED_ORIGINS explicitly"
+    )
