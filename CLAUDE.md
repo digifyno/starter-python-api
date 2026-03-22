@@ -404,7 +404,7 @@ async def example(request: Request):
 
 ## JWT Secret Key
 
-`SECRET_KEY` must be at least 32 characters. Shorter values cause a `ValidationError` at startup with an actionable message.
+`SECRET_KEY` must be at least 32 characters **and** have sufficient randomness (Shannon entropy ≥ 3.0 bits/char). Weak keys (e.g. all-same character, short repeating patterns) are rejected at startup with `ValidationError: entropy too low`.
 
 Generate a strong key:
 ```bash
