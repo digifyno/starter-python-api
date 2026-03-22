@@ -48,13 +48,15 @@ uv run pip-audit
 ## Project Structure
 
 ```
-main.py              # FastAPI app entry point
+main.py              # FastAPI app entry point — routes, middleware, and Settings class (pydantic-settings: SECRET_KEY, ALLOWED_ORIGINS, DEBUG, RATE_LIMIT)
 database.py          # SQLAlchemy async engine, models, get_db dependency
 requirements.txt     # Production dependencies
 requirements-dev.txt # Dev/test dependencies
-tests/               # Test files
+tests/               # Test files (conftest, test_main, test_database, test_logging, test_settings)
 dist/                # Static files (optional)
 .env.example         # Environment variable template
+pytest.ini           # Pytest configuration (asyncio_mode = auto)
+venv.py              # Workaround shim for missing python3.12-venv system package
 ```
 
 ## Key Patterns
