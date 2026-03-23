@@ -188,7 +188,6 @@ pip install sqlalchemy>=2.0 asyncpg
 # database.py
 import os
 
-from sqlalchemy import String
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
