@@ -257,11 +257,34 @@ Middleware is registered in `main.py` and executes in **reverse registration ord
 | 5th | CORSMiddleware | Reads `ALLOWED_ORIGINS` env var (innermost) |
 | Per-route | slowapi rate limiter | Applied via `@limiter.limit()` decorator; default: 100/minute |
 
+### Rate Limiting Setup
+
+Wire `slowapi` into the app once in `main.py`:
+
+```python
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+limiter = Limiter(key_func=get_remote_address, default_limits=[settings.rate_limit])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+```
+
+Then apply per-route overrides with `@limiter.limit()`:
+
+```python
+@router.get("/items")
+@limiter.limit("10/minute")
+async def get_items(request: Request):  # Request is required by slowapi even if unused
+    return {"items": []}
+```
+
+> **Note:** slowapi requires `request: Request` as a parameter in every rate-limited route handler, even if the handler doesn't use it directly.
+
 **Configuring rate limits:**
 
-
-
-Set `RATE_LIMIT=60/minute` (or any [limits string](https://limits.readthedocs.io/en/stable/quickstart.html)) in `.env` to change the default. Per-route overrides use the `@limiter.limit()` decorator.
+Set `RATE_LIMIT=60/minute` (or any [limits string](https://limits.readthedocs.io/en/stable/quickstart.html)) in `.env` to change the default. This value is wired to `settings.rate_limit` and passed to `Limiter(default_limits=[settings.rate_limit])`.
 
 **Configuring trusted hosts (production):**
 
