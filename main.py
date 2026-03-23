@@ -288,7 +288,8 @@ async def info(s: Settings = Depends(get_settings)):
 
 
 @app.get("/api/hello", response_model=HelloResponse)
-async def hello():
+@limiter.limit(settings.rate_limit)
+async def hello(request: Request):
     """Sample API endpoint"""
     return {"message": "Hello from FastAPI!"}
 
