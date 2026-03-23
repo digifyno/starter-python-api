@@ -311,9 +311,10 @@ pip install PyJWT bcrypt
 > to `requirements.txt` and remove them from `requirements-dev.txt`.
 
 ```python
+from datetime import datetime, timedelta, timezone
 import jwt
 import bcrypt
-from jwt.exceptions import InvalidTokenError
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 
 def hash_password(password: str) -> str:
     # bcrypt work factor: target ~250ms on your production hardware
@@ -325,11 +326,29 @@ def hash_password(password: str) -> str:
 def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
-def create_access_token(data: dict, secret_key: str) -> str:
-    return jwt.encode(data, secret_key, algorithm="HS256")
+def create_access_token(data: dict, secret_key: str, expires_in: timedelta = timedelta(hours=1)) -> str:
+    payload = data.copy()
+    payload["exp"] = datetime.now(timezone.utc) + expires_in
+    return jwt.encode(payload, secret_key, algorithm="HS256")
 
 def decode_access_token(token: str, secret_key: str) -> dict:
+    # PyJWT automatically validates 'exp' — raises jwt.ExpiredSignatureError if expired
     return jwt.decode(token, secret_key, algorithms=["HS256"])
+```
+
+Handle token errors in route handlers — catch `ExpiredSignatureError` separately for a clear `401` message:
+
+```python
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
+
+def get_current_user(token: str):
+    try:
+        payload = decode_access_token(token, settings.secret_key)
+        return payload
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 ```
 
 ## Testing
