@@ -404,9 +404,41 @@ def get_current_user(token: str):
 
 ## Testing
 
-```bash
-pip install pytest httpx
+Dependencies (`pytest` and `httpx`) are already in `requirements-dev.txt`.
+
+### Async tests (primary pattern)
+
+The project uses `asyncio_mode = auto` in `pytest.ini`, so **no `@pytest.mark.asyncio` decorator is needed** — any `async def` test function runs automatically under asyncio.
+
+Use `AsyncClient` with `ASGITransport` to test the full ASGI stack (middleware, lifespan, async DB sessions) without starting a real server:
+
+```python
+# tests/conftest.py
+import pytest
+from httpx import AsyncClient, ASGITransport
+from main import app
+
+@pytest.fixture
+async def client():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
 ```
+
+```python
+# tests/test_main.py
+async def test_health(client):
+    response = await client.get("/health")
+    assert response.status_code == 200
+
+async def test_rate_limit(client):
+    for _ in range(101):  # exceed 100/minute default
+        response = await client.get("/api/v1/items")
+    assert response.status_code == 429
+```
+
+### Sync alternative (quick checks)
+
+For simple smoke tests that don't involve async DB sessions or middleware ordering, the synchronous `TestClient` is a shorter option:
 
 ```python
 from fastapi.testclient import TestClient
@@ -419,6 +451,7 @@ def test_read_main():
     assert response.status_code == 200
 ```
 
+> Prefer `AsyncClient` for tests that touch middleware, database sessions, or rate limiting — these exercise the real async code paths. Use `TestClient` only for quick, isolated endpoint checks.
 ## Production Deployment
 
 ### Gunicorn
