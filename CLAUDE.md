@@ -231,6 +231,35 @@ async def list_items(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 ```
 
+### Alembic migrations (production)
+
+```bash
+pip install alembic
+alembic init migrations
+```
+
+In `migrations/env.py`, import your `Base` and set the metadata:
+
+```python
+from database import Base
+target_metadata = Base.metadata
+```
+
+In `alembic.ini`, set `sqlalchemy.url` or override from env:
+
+```python
+# migrations/env.py — override url from environment
+import os
+config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL", "").replace("+asyncpg", "+psycopg2"))
+```
+
+Note: Alembic uses synchronous psycopg2 for migrations even if your app uses asyncpg. Add `psycopg2-binary` to `requirements.txt` when using Alembic.
+
+```bash
+alembic revision --autogenerate -m "initial"
+alembic upgrade head
+```
+
 ### MongoDB (Motor)
 ```bash
 pip install motor
