@@ -48,7 +48,9 @@ uv run pip-audit
 ## Project Structure
 
 ```
-main.py              # FastAPI app entry point — registers routers, middleware, and Settings class (pydantic-settings: SECRET_KEY, ALLOWED_ORIGINS, DEBUG, RATE_LIMIT, ALLOWED_HOSTS)
+main.py              # FastAPI app entry point — registers routers, middleware, lifespan handler
+routes/              # APIRouter modules (register in main.py via app.include_router)
+settings.py          # pydantic-settings Settings class (SECRET_KEY, ALLOWED_ORIGINS, DEBUG, RATE_LIMIT, ALLOWED_HOSTS)
 database.py          # SQLAlchemy async engine, models, get_db dependency
 requirements.txt     # Production dependencies
 requirements-dev.txt # Dev/test dependencies
