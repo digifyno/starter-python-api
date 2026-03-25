@@ -279,7 +279,7 @@ Middleware is registered in `main.py` and executes in **reverse registration ord
 | Order (request) | Middleware | Notes |
 |---|---|---|
 | 1st | RequestLoggingMiddleware | Structured JSON logs with `request_id`; skips `/health` |
-| 2nd | SecurityHeadersMiddleware | Sets `X-Frame-Options`, CSP, HSTS, etc. |
+| 2nd | SecurityHeadersMiddleware | Sets 7 security headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection: 0`, `Referrer-Policy`, CSP, `Permissions-Policy`, HSTS — see table below |
 | 3rd | TrustedHostMiddleware | **Production only** (skipped when `DEBUG=true`); validates `Host` header |
 | 4th | GZipMiddleware | Compresses responses ≥ 1000 bytes |
 | 5th | CORSMiddleware | Reads `ALLOWED_ORIGINS` env var (innermost) |
@@ -452,12 +452,29 @@ async def client():
 async def test_health(client):
     response = await client.get("/health")
     assert response.status_code == 200
-
-async def test_rate_limit(client):
-    for _ in range(101):  # exceed 100/minute default
-        response = await client.get("/api/v1/items")
-    assert response.status_code == 429
 ```
+
+**Testing rate limits**: slowapi stores hit counts in memory on the `limiter` instance. Tests that exhaust the limit leave state behind and will cause subsequent tests to see stale counts. Use `monkeypatch` + module reload to get a fresh limiter with a low limit, avoiding cross-test pollution:
+
+```python
+# tests/test_middleware.py
+from importlib import reload
+from fastapi.testclient import TestClient
+
+def test_rate_limit_exceeded(monkeypatch):
+    """slowapi rate limiter returns 429 when request limit is exceeded."""
+    monkeypatch.setenv("RATE_LIMIT", "2/minute")
+    import main as main_module
+
+    reload(main_module)
+    rl_client = TestClient(main_module.app)
+    responses = [rl_client.get("/api/hello") for _ in range(4)]
+    status_codes = [r.status_code for r in responses]
+    assert 429 in status_codes, "Rate limiter should return 429 when limit is exceeded"
+    assert 200 in status_codes, "Rate limiter should allow requests within the limit"
+```
+
+> **Why reload?** The `limiter` object is module-level state in `main.py`. Without a reload, hit counts from previous tests accumulate and can cause unrelated tests to receive unexpected 429 responses. The `monkeypatch` + `reload` pattern creates a fresh module with a clean limiter and a low `RATE_LIMIT` so the test doesn't need to fire 100+ requests.
 
 ### Sync alternative (quick checks)
 
