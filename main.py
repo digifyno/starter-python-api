@@ -83,6 +83,12 @@ async def lifespan(app: FastAPI):
     if os.getenv("DATABASE_URL"):
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+    if not settings.debug and settings.allowed_hosts == ["*"]:
+        logger.warning(
+            "SECURITY WARNING: ALLOWED_HOSTS is set to '*' in production mode. "
+            "Set the ALLOWED_HOSTS environment variable to restrict accepted Host headers. "
+            'Example: ALLOWED_HOSTS=["myapp.com","www.myapp.com"]'
+        )
     logger.info("Starting up")
     yield
     await engine.dispose()
