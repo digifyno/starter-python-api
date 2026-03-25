@@ -285,6 +285,29 @@ Middleware is registered in `main.py` and executes in **reverse registration ord
 | 5th | CORSMiddleware | Reads `ALLOWED_ORIGINS` env var (innermost) |
 | Per-route | slowapi rate limiter | Applied via `@limiter.limit()` decorator; default: 100/minute |
 
+### Security Headers (SecurityHeadersMiddleware)
+
+All responses include these headers (set in `main.py`, `SecurityHeadersMiddleware`):
+
+| Header | Value |
+|--------|-------|
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` |
+| `X-XSS-Protection` | `0` (disabled — deprecated and harmful in old browsers) |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';` |
+| `Permissions-Policy` | `geolocation=(), microphone=(), camera=()` |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
+
+**Production customization notes:**
+
+- **CSP `style-src 'unsafe-inline'`**: Required for inline styles (e.g., CSS-in-JS, some component libraries). If your app uses an external stylesheet CDN, add `style-src 'self' 'unsafe-inline' https://cdn.example.com`. To tighten further, replace `'unsafe-inline'` with a nonce or hash.
+- **CSP `img-src 'self' data:`**: `data:` allows base64-encoded images. Add external image hosts as needed (e.g., `img-src 'self' data: https://images.example.com`).
+- **HSTS**: Also configure at the nginx level (`add_header Strict-Transport-Security`) so the header is sent on the initial HTTP→HTTPS redirect before the app processes the request.
+- **`frame-ancestors 'none'`**: Redundant with `X-Frame-Options: DENY` but required for CSP-aware browsers. Both are set for maximum compatibility.
+
+To customize these headers, edit `SecurityHeadersMiddleware.dispatch()` in `main.py`.
+
 ### Rate Limiting Setup
 
 Wire `slowapi` into the app once in `main.py`:
