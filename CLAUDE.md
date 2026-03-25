@@ -337,6 +337,25 @@ async def get_items(request: Request):  # Request is required by slowapi even if
 
 Set `RATE_LIMIT=60/minute` (or any [limits string](https://limits.readthedocs.io/en/stable/quickstart.html)) in `.env` to change the default. This value is wired to `settings.rate_limit` and passed to `Limiter(default_limits=[settings.rate_limit])`.
 
+> **Multi-process deployments (Gunicorn)**: The default in-memory storage is **per-process**. With `-w 4`, each worker tracks its own counter — a client sees 4× the configured limit. For accurate rate limiting in production, either:
+> 1. Run with a single worker (`-w 1`) — loses concurrency.
+> 2. Use a Redis-backed storage backend:
+>
+> ```bash
+> pip install limits[redis]
+> ```
+>
+> ```python
+> from limits.storage import RedisStorage
+> limiter = Limiter(
+>     key_func=get_remote_address,
+>     default_limits=[settings.rate_limit],
+>     storage_uri="redis://localhost:6379",
+> )
+> ```
+>
+> Set `REDIS_URL` in `.env` and pass it to `storage_uri`. Without Redis, rate limiting in multi-worker deployments is not enforceable.
+
 **Configuring trusted hosts (production):**
 
 Set `ALLOWED_HOSTS` in `.env` to a JSON array of permitted hostnames:
@@ -499,6 +518,8 @@ def test_read_main():
 pip install gunicorn
 gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 ```
+
+> **Rate limiting**: The default in-memory limiter is not shared across workers. See [Rate Limiting Setup](#rate-limiting-setup) for multi-worker configuration.
 
 ### systemd Service
 ```ini
