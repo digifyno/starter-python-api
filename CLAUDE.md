@@ -444,9 +444,96 @@ def get_current_user(token: str):
         raise HTTPException(status_code=401, detail="Invalid token")
 ```
 
+
+### Extracting JWT from Authorization header
+
+Use `HTTPBearer` to automatically parse the `Authorization: Bearer <token>` header and surface it as a typed dependency:
+
+```python
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Security, HTTPException, Depends
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
+
+security = HTTPBearer()
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Security(security)
+):
+    try:
+        payload = decode_access_token(credentials.credentials, settings.secret_key)
+        return payload
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.get("/api/me")
+async def read_me(user = Depends(get_current_user)):
+    return user
+```
+
+`HTTPBearer` automatically returns a `403` if the `Authorization` header is missing or not in `Bearer <token>` format, before your handler is called. FastAPI also renders a lock icon in the Swagger UI (`/docs`) for secured routes.
+
 ## Testing
 
 Dependencies (`pytest` and `httpx`) are already in `requirements-dev.txt`.
+
+### Test database setup
+
+Database tests require either a running PostgreSQL instance or an in-memory SQLite database for isolation.
+
+**Option A — SQLite in-memory (fast, no Postgres needed):**
+
+Set `DATABASE_URL=sqlite+aiosqlite:///./test.db` in a `.env.test` file or as an environment variable before running pytest. Install `aiosqlite`:
+
+```bash
+pip install aiosqlite  # add to requirements-dev.txt
+```
+
+```bash
+DATABASE_URL=sqlite+aiosqlite:///./test.db pytest tests/
+```
+
+> **Note:** SQLite does not support all PostgreSQL features (e.g., `RETURNING` clauses in older SQLAlchemy versions, JSON operators). Use Option B if your models rely on Postgres-specific behaviour.
+
+**Option B — Dedicated Postgres test database:**
+
+Create a test database and set `DATABASE_URL` before running pytest. The lifespan handler will run `create_all` on startup:
+
+```bash
+createdb test_db
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost/test_db pytest tests/
+```
+
+**Transaction isolation — rollback fixture:**
+
+For integration tests that mutate DB state, wrap each test in a transaction that rolls back on teardown to avoid test pollution:
+
+```python
+# tests/conftest.py
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
+from database import engine, Base
+
+@pytest.fixture
+async def db_session():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        async with AsyncSession(conn) as session:
+            yield session
+            await session.rollback()
+```
+
+Use `db_session` in tests instead of the production `get_db` dependency:
+
+```python
+async def test_create_item(db_session):
+    item = MyModel(name="test")
+    db_session.add(item)
+    await db_session.flush()
+    assert item.id is not None
+    # rolled back automatically after the test
+```
 
 ### Async tests (primary pattern)
 
