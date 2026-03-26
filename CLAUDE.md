@@ -401,9 +401,7 @@ ALLOWED_ORIGINS=["https://myapp.com","https://www.myapp.com"]
 pip install PyJWT bcrypt
 ```
 
-> **Important**: `PyJWT` and `bcrypt` are in `requirements-dev.txt` as examples.
-> These are example implementations — to use them in production, add `PyJWT` and `bcrypt`
-> to `requirements.txt` and remove them from `requirements-dev.txt`.
+> **Note**: `PyJWT` and `bcrypt` are production dependencies already included in `requirements.txt`.
 
 ```python
 from datetime import datetime, timedelta, timezone
