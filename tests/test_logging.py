@@ -73,6 +73,28 @@ def test_request_log_contains_correct_values(caplog):
     assert matched["duration_ms"] >= 0
 
 
+def test_x_request_id_passthrough():
+    """Client-supplied X-Request-ID is echoed back in the response header."""
+    from fastapi.testclient import TestClient
+    from main import app
+    client = TestClient(app)
+    response = client.get("/api/hello", headers={"X-Request-ID": "my-correlation-id"})
+    assert response.headers.get("x-request-id") == "my-correlation-id"
+
+
+def test_x_request_id_generated_when_absent():
+    """A UUID X-Request-ID is generated and returned when none is provided."""
+    import re
+    from fastapi.testclient import TestClient
+    from main import app
+    client = TestClient(app)
+    response = client.get("/api/hello")
+    request_id = response.headers.get("x-request-id")
+    assert request_id is not None
+    uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', re.IGNORECASE)
+    assert uuid_pattern.match(request_id), f"Expected UUID4, got: {request_id}"
+
+
 def test_no_query_params_in_log(caplog):
     """Query parameters (PII risk) should NOT appear in the default log entry."""
     client = TestClient(app)

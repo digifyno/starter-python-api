@@ -4,3 +4,13 @@ import os
 
 # Add the project root directory to sys.path so `from main import app` works
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import pytest
+from httpx import AsyncClient, ASGITransport
+from main import app
+
+
+@pytest.fixture
+async def async_client():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
