@@ -16,7 +16,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, EmailStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -209,7 +209,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
     logger.exception(
         "Unhandled exception for %s %s (request_id=%s)",
         request.method,
-        request.url,
+        request.url.path,
         request_id,
     )
     return JSONResponse(
@@ -252,7 +252,7 @@ class InfoResponse(BaseModel):
 
 
 class NotificationRequest(BaseModel):
-    email: str
+    email: EmailStr
     message: str
 
 
