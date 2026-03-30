@@ -32,11 +32,15 @@ python main.py
 ## Project Structure
 
 ```
-├── main.py              # FastAPI application
-├── requirements.txt     # Python dependencies
-├── dist/                # Static files (optional)
-│   └── index.html       # Placeholder page
-└── .env                 # Environment variables (create this)
+├── main.py              # FastAPI application, settings, middleware, routes
+├── auth.py              # JWT token helpers and bcrypt password hashing
+├── database.py          # Async SQLAlchemy engine and models
+├── requirements.txt     # Production dependencies
+├── requirements-dev.txt # Dev/test dependencies
+├── pytest.ini           # Pytest configuration
+├── .env.example         # Environment variable template
+├── tests/               # Test suite
+└── dist/                # Static files (optional)
 ```
 
 ## API Endpoints
@@ -45,9 +49,13 @@ python main.py
 |--------|----------|-------------|
 | GET | `/` | Root endpoint (serves dist/index.html or API info) |
 | GET | `/health` | Health check |
+| GET | `/info` | App name and debug flag |
 | GET | `/api/hello` | Sample API endpoint |
 | POST | `/api/items` | Create an item |
 | GET | `/api/items/{item_id}` | Get item by ID |
+| GET | `/api/todos` | List all todo items |
+| POST | `/api/todos` | Create a todo item |
+| POST | `/api/v1/notify` | Queue an email notification |
 
 ## Interactive Documentation
 
@@ -71,29 +79,27 @@ async def create_user(user: User):
 
 ## Environment Variables
 
-Create a `.env` file:
+Copy `.env.example` to `.env` and set values. Configuration is loaded via pydantic-settings:
 
 ```env
-DATABASE_URL=postgresql://user:password@localhost/dbname
-SECRET_KEY=your-secret-key
-DEBUG=True
-```
+# Required in production
+SECRET_KEY=<generate with: python -c "import secrets; print(secrets.token_hex(32))">
 
-Load in `main.py`:
-
-```python
-from dotenv import load_dotenv
-load_dotenv()
-
-database_url = os.getenv("DATABASE_URL")
+# Optional
+DATABASE_URL=postgresql+asyncpg://user:password@localhost/dbname
+ALLOWED_ORIGINS=["https://myapp.com"]
+ALLOWED_HOSTS=["myapp.com","www.myapp.com"]
+DEBUG=false
+RATE_LIMIT=100/minute
 ```
 
 ## Database Integration
 
-### PostgreSQL with SQLAlchemy
+### PostgreSQL with SQLAlchemy (async)
 
 ```bash
-pip install sqlalchemy psycopg2-binary
+# Async PostgreSQL (already included in requirements.txt)
+pip install sqlalchemy>=2.0 asyncpg
 ```
 
 ### MongoDB

@@ -48,13 +48,12 @@ uv run pip-audit
 ## Project Structure
 
 ```
-main.py              # FastAPI app entry point — registers routers, middleware, lifespan handler
-routes/              # APIRouter modules (register in main.py via app.include_router)
-settings.py          # pydantic-settings Settings class (SECRET_KEY, ALLOWED_ORIGINS, DEBUG, RATE_LIMIT, ALLOWED_HOSTS)
+main.py              # FastAPI app entry point — Settings, middleware, routes, lifespan
+auth.py              # JWT and bcrypt password helpers
 database.py          # SQLAlchemy async engine, models, get_db dependency
 requirements.txt     # Production dependencies
 requirements-dev.txt # Dev/test dependencies
-tests/               # Test files (conftest, test_main, test_database, test_logging, test_settings, test_middleware)
+tests/               # Test files (conftest, test_main, test_items, test_database, test_logging, test_settings, test_middleware, test_auth)
 dist/                # Static files (optional)
 .env.example         # Environment variable template
 pytest.ini           # Pytest configuration (asyncio_mode = auto)
