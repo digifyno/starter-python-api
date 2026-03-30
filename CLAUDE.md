@@ -547,15 +547,15 @@ from httpx import AsyncClient, ASGITransport
 from main import app
 
 @pytest.fixture
-async def client():
+async def async_client():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 ```
 
 ```python
 # tests/test_main.py
-async def test_health(client):
-    response = await client.get("/health")
+async def test_health(async_client):
+    response = await async_client.get("/health")
     assert response.status_code == 200
 ```
 
