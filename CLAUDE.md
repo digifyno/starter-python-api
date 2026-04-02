@@ -663,6 +663,15 @@ async def example(request: Request):
 
 `SECRET_KEY` must be at least 32 characters **and** have sufficient randomness (Shannon entropy ≥ 3.0 bits/char). Weak keys (e.g. all-same character, short repeating patterns) are rejected at startup with `ValidationError: entropy too low`.
 
+Additionally, if `SECRET_KEY` is left as the **publicly known default** (`change-me-in-production-not-for-real-use`) and `DEBUG=false`, the application logs a `SECURITY WARNING` at startup:
+
+```
+SECURITY WARNING: SECRET_KEY is set to the publicly known default value.
+This key is not secret. Set a randomly generated key: ...
+```
+
+This warning does **not** prevent startup — it is a signal to rotate the key before deployment. In development (`DEBUG=true`) the warning is suppressed.
+
 Generate a strong key:
 ```bash
 python -c "import secrets; print(secrets.token_hex(32))"
