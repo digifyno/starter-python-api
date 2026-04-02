@@ -97,3 +97,33 @@ def test_cors_wildcard_not_default():
     assert "*" not in settings.allowed_origins, (
         "Wildcard CORS origin should not be a default — set ALLOWED_ORIGINS explicitly"
     )
+
+
+def test_root_returns_html_when_dist_index_exists(tmp_path, monkeypatch):
+    """GET / returns HTMLResponse when dist/index.html exists."""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<html><body>Hello</body></html>")
+    monkeypatch.chdir(tmp_path)
+    from fastapi.testclient import TestClient
+    from main import app
+    response = TestClient(app).get("/")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "Hello" in response.text
+
+
+def test_notify_invalid_email_returns_422():
+    response = client.post("/api/v1/notify", json={"email": "not-an-email", "message": "hi"})
+    assert response.status_code == 422
+
+
+def test_notify_missing_message_returns_422():
+    response = client.post("/api/v1/notify", json={"email": "user@example.com"})
+    assert response.status_code == 422
+
+
+def test_notify_empty_message_returns_422():
+    """Empty string message is rejected by min_length=1 on NotificationRequest.message."""
+    response = client.post("/api/v1/notify", json={"email": "user@example.com", "message": ""})
+    assert response.status_code == 422

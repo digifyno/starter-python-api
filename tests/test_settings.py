@@ -201,3 +201,18 @@ async def test_lifespan_no_warning_on_custom_secret_key(monkeypatch, caplog):
         "SECRET_KEY is set to the publicly known default value" in record.message
         for record in caplog.records
     )
+
+
+async def test_lifespan_warns_when_allowed_hosts_wildcard_in_production(caplog):
+    """Lifespan emits SECURITY WARNING when ALLOWED_HOSTS is ['*'] in production."""
+    import logging
+    from unittest.mock import patch
+    import main as main_module
+    from main import lifespan
+
+    with patch.object(main_module.settings, 'debug', False), \
+         patch.object(main_module.settings, 'allowed_hosts', ['*']):
+        with caplog.at_level(logging.WARNING):
+            async with lifespan(main_module.app):
+                pass
+    assert any("ALLOWED_HOSTS" in r.message for r in caplog.records)
