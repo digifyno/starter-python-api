@@ -97,7 +97,7 @@ app.include_router(items_router)
 from pydantic import BaseModel, Field
 
 class User(BaseModel):
-    name: str
+    name: str = Field(min_length=1)  # prevent empty strings
     email: str
     age: int = Field(gt=0, le=120)
     
