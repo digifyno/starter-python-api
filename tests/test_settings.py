@@ -139,3 +139,65 @@ def test_secret_key_high_entropy_hex_is_valid(monkeypatch):
 
     s = Settings()
     assert len(s.secret_key) == 64  # token_hex(32) produces 64 hex chars
+
+
+async def test_lifespan_warns_on_default_secret_key_in_production(monkeypatch, caplog):
+    """Lifespan emits a WARNING when SECRET_KEY is the default value and DEBUG is false."""
+    import logging
+    from importlib import reload
+    import main as main_module
+
+    monkeypatch.setenv("DEBUG", "false")
+    monkeypatch.setenv("SECRET_KEY", "change-me-in-production-not-for-real-use")
+    reload(main_module)
+
+    with caplog.at_level(logging.WARNING):
+        async with main_module.lifespan(main_module.app):
+            pass
+
+    assert any(
+        "SECRET_KEY is set to the publicly known default value" in record.message
+        for record in caplog.records
+        if record.levelno == logging.WARNING
+    )
+
+
+async def test_lifespan_no_warning_on_default_secret_key_in_debug(monkeypatch, caplog):
+    """Lifespan does NOT warn about default SECRET_KEY when DEBUG is true."""
+    import logging
+    from importlib import reload
+    import main as main_module
+
+    monkeypatch.setenv("DEBUG", "true")
+    monkeypatch.setenv("SECRET_KEY", "change-me-in-production-not-for-real-use")
+    reload(main_module)
+
+    with caplog.at_level(logging.WARNING):
+        async with main_module.lifespan(main_module.app):
+            pass
+
+    assert not any(
+        "SECRET_KEY is set to the publicly known default value" in record.message
+        for record in caplog.records
+    )
+
+
+async def test_lifespan_no_warning_on_custom_secret_key(monkeypatch, caplog):
+    """Lifespan does NOT warn about SECRET_KEY when a custom key is configured."""
+    import logging
+    import secrets
+    from importlib import reload
+    import main as main_module
+
+    monkeypatch.setenv("DEBUG", "false")
+    monkeypatch.setenv("SECRET_KEY", secrets.token_hex(32))
+    reload(main_module)
+
+    with caplog.at_level(logging.WARNING):
+        async with main_module.lifespan(main_module.app):
+            pass
+
+    assert not any(
+        "SECRET_KEY is set to the publicly known default value" in record.message
+        for record in caplog.records
+    )

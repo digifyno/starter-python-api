@@ -89,6 +89,12 @@ async def lifespan(app: FastAPI):
             "Set the ALLOWED_HOSTS environment variable to restrict accepted Host headers. "
             'Example: ALLOWED_HOSTS=["myapp.com","www.myapp.com"]'
         )
+    if not settings.debug and settings.secret_key == "change-me-in-production-not-for-real-use":
+        logger.warning(
+            "SECURITY WARNING: SECRET_KEY is set to the publicly known default value. "
+            "This key is not secret. Set a randomly generated key: "
+            'python -c \'import secrets; print(secrets.token_hex(32))\''
+        )
     logger.info("Starting up")
     yield
     await engine.dispose()
