@@ -196,13 +196,31 @@ if os.path.exists("dist"):
 
 
 # Exception handlers
+def _serializable_errors(errors: list) -> list:
+    """Convert Pydantic v2 validation errors to JSON-serializable dicts.
+
+    field_validator raises store the original exception in ctx['error'], which
+    is not JSON serializable. Convert any non-primitive ctx values to strings.
+    """
+    result = []
+    for err in errors:
+        err = dict(err)
+        if 'ctx' in err:
+            err['ctx'] = {
+                k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+                for k, v in err['ctx'].items()
+            }
+        result.append(err)
+    return result
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     request_id = getattr(request.state, "request_id", None)
     return JSONResponse(
         status_code=422,
         content={
-            "detail": exc.errors(),
+            "detail": _serializable_errors(exc.errors()),
             "body": exc.body,
         },
         headers={"X-Request-ID": request_id} if request_id else {},
@@ -229,7 +247,14 @@ async def generic_exception_handler(request: Request, exc: Exception):
 class Item(BaseModel):
     name: str = Field(min_length=1)
     description: str | None = None
-    price: float
+    price: float = Field(ge=0)
+
+    @field_validator('name')
+    @classmethod
+    def name_must_not_be_whitespace(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('name must not be blank')
+        return v
 
 
 class HealthResponse(BaseModel):
@@ -260,6 +285,13 @@ class InfoResponse(BaseModel):
 class NotificationRequest(BaseModel):
     email: EmailStr
     message: str = Field(min_length=1)
+
+    @field_validator('message')
+    @classmethod
+    def message_must_not_be_whitespace(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('message must not be blank')
+        return v
 
 
 # Background task function — simulates a fire-and-forget email notification.
@@ -350,6 +382,13 @@ async def notify(notification: NotificationRequest, background_tasks: Background
 
 class TodoCreate(BaseModel):
     title: str = Field(min_length=1)
+
+    @field_validator('title')
+    @classmethod
+    def title_must_not_be_whitespace(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('title must not be blank')
+        return v
 
 
 class TodoOut(BaseModel):

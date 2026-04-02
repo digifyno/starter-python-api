@@ -127,3 +127,8 @@ def test_notify_empty_message_returns_422():
     """Empty string message is rejected by min_length=1 on NotificationRequest.message."""
     response = client.post("/api/v1/notify", json={"email": "user@example.com", "message": ""})
     assert response.status_code == 422
+
+
+def test_notify_whitespace_message_returns_422():
+    response = client.post("/api/v1/notify", json={"email": "user@example.com", "message": "   "})
+    assert response.status_code == 422
