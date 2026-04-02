@@ -39,3 +39,8 @@ async def test_get_item(async_client: AsyncClient):
 async def test_get_item_invalid_id(async_client: AsyncClient):
     response = await async_client.get("/api/items/not-an-int")
     assert response.status_code == 422
+
+
+async def test_create_item_empty_name_returns_422(async_client: AsyncClient):
+    response = await async_client.post("/api/items", json={"name": "", "price": 9.99})
+    assert response.status_code == 422

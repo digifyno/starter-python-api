@@ -227,7 +227,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 # Models
 class Item(BaseModel):
-    name: str
+    name: str = Field(min_length=1)
     description: str | None = None
     price: float
 
@@ -349,7 +349,7 @@ async def notify(notification: NotificationRequest, background_tasks: Background
 
 
 class TodoCreate(BaseModel):
-    title: str
+    title: str = Field(min_length=1)
 
 
 class TodoOut(BaseModel):
