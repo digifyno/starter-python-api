@@ -94,21 +94,39 @@ app.include_router(items_router)
 
 ### Pydantic Models
 ```python
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 class User(BaseModel):
-    name: str = Field(min_length=1)  # prevent empty strings
+    name: str = Field(min_length=1)  # prevent empty strings, but see note below
     email: str
     age: int = Field(gt=0, le=120)
-    
-    class Config:
-        json_schema_extra = {
+
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "name": "John Doe",
                 "email": "john@example.com",
                 "age": 30
             }
         }
+    }
+```
+
+> **Note:** `min_length=1` alone allows whitespace-only strings like `"   "`. Use a `field_validator` to reject those:
+
+```python
+from pydantic import BaseModel, Field, field_validator
+
+class Item(BaseModel):
+    name: str = Field(min_length=1)
+    price: float = Field(ge=0)
+
+    @field_validator('name')
+    @classmethod
+    def name_must_not_be_whitespace(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('name must not be blank')
+        return v
 ```
 
 ### Async Operations
