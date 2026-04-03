@@ -138,3 +138,36 @@ def test_notify_empty_message_returns_422():
 def test_notify_whitespace_message_returns_422():
     response = client.post("/api/v1/notify", json={"email": "user@example.com", "message": "   "})
     assert response.status_code == 422
+
+
+def test_validation_error_echoes_request_id():
+    """validation_exception_handler includes X-Request-ID in response header."""
+    response = client.post(
+        "/api/items",
+        json={"price": "not-a-number"},
+        headers={"X-Request-ID": "test-correlation-id"},
+    )
+    assert response.status_code == 422
+    assert response.headers.get("x-request-id") == "test-correlation-id"
+
+
+def test_unhandled_exception_echoes_request_id():
+    """generic_exception_handler includes X-Request-ID in response when middleware sets it."""
+    from fastapi import FastAPI
+    from main import generic_exception_handler, RequestLoggingMiddleware
+
+    isolated = FastAPI()
+    isolated.add_exception_handler(Exception, generic_exception_handler)
+    isolated.add_middleware(RequestLoggingMiddleware)
+
+    @isolated.get("/_test/raise-error")
+    async def raise_error():
+        raise RuntimeError("boom")
+
+    error_client = TestClient(isolated, raise_server_exceptions=False)
+    response = error_client.get(
+        "/_test/raise-error",
+        headers={"X-Request-ID": "test-error-id"},
+    )
+    assert response.status_code == 500
+    assert response.headers.get("x-request-id") == "test-error-id"
