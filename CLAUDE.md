@@ -661,7 +661,7 @@ All request logs are structured JSON via the `RequestLoggingMiddleware`. Every l
 - Otherwise a UUID4 is generated for the request.
 - The ID is stored on `request.state.request_id` so route handlers and exception handlers can access it.
 - The ID is echoed back in the `X-Request-ID` response header.
-- Exception handlers (`validation_exception_handler`, `generic_exception_handler`) include the `request_id` in the `X-Request-ID` response header and in the log message.
+- Both `validation_exception_handler` and `generic_exception_handler` echo `request_id` in the `X-Request-ID` response header. `generic_exception_handler` also logs it in the exception message; `validation_exception_handler` does not log separately.
 
 ```python
 # Access in route handlers or dependencies:
