@@ -501,11 +501,7 @@ Database tests require either a running PostgreSQL instance or an in-memory SQLi
 
 **Option A — SQLite in-memory (fast, no Postgres needed):**
 
-Set `DATABASE_URL=sqlite+aiosqlite:///./test.db` in a `.env.test` file or as an environment variable before running pytest. Install `aiosqlite`:
-
-```bash
-pip install aiosqlite  # add to requirements-dev.txt
-```
+Set `DATABASE_URL=sqlite+aiosqlite:///./test.db` in a `.env.test` file or as an environment variable before running pytest. `aiosqlite` is included in `requirements-dev.txt` — no separate install needed.
 
 ```bash
 DATABASE_URL=sqlite+aiosqlite:///./test.db pytest tests/
