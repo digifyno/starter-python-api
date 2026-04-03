@@ -39,11 +39,17 @@ def test_security_headers():
 
 
 def test_unhandled_exception_returns_generic_500():
-    @app.get("/_test/raise-error")
+    from fastapi import FastAPI
+    from main import generic_exception_handler
+
+    isolated = FastAPI()
+    isolated.add_exception_handler(Exception, generic_exception_handler)
+
+    @isolated.get("/_test/raise-error")
     async def raise_error():
         raise RuntimeError("This is an unhandled exception")
 
-    error_client = TestClient(app, raise_server_exceptions=False)
+    error_client = TestClient(isolated, raise_server_exceptions=False)
     response = error_client.get("/_test/raise-error")
     assert response.status_code == 500
     assert response.json() == {"detail": "Internal server error"}
