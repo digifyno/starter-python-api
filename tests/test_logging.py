@@ -43,9 +43,9 @@ def test_request_logging_logs_json_fields(caplog):
             pass
 
     assert any(
-        all(k in log for k in ["method", "path", "status", "duration_ms"])
+        all(k in log for k in ["request_id", "method", "path", "status", "duration_ms"])
         for log in json_logs
-    ), f"No structured log entry found with required fields. Messages: {log_messages}"
+    ), f"No structured log entry with all required fields. Messages: {log_messages}"
 
 
 def test_request_log_contains_correct_values(caplog):
