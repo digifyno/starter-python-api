@@ -298,7 +298,7 @@ class NotificationRequest(BaseModel):
 # async def can also be used here for non-blocking I/O in the background.
 def send_notification_email(email: str, message: str) -> None:
     time.sleep(0.1)  # Simulate work (e.g., SMTP call)
-    print(f"Notification sent to {email!r}: {message!r}")
+    logger.info(json.dumps({"event": "notification_sent", "email": email}))
 
 
 # Routes
