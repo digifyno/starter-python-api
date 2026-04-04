@@ -105,3 +105,10 @@ def test_create_todo_empty_title_returns_422(client):
 def test_create_todo_whitespace_title_returns_422(client):
     response = client.post("/api/todos", json={"title": "   "})
     assert response.status_code == 422
+    data = response.json()
+    assert "detail" in data
+    assert "body" in data
+    for error in data["detail"]:
+        if "ctx" in error:
+            for v in error["ctx"].values():
+                assert isinstance(v, (str, int, float, bool, type(None)))
