@@ -4,9 +4,16 @@ from main import app
 client = TestClient(app)
 
 
-def test_root():
-    response = client.get("/")
+def test_root(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    from fastapi.testclient import TestClient
+    from main import app
+    response = TestClient(app).get("/")
     assert response.status_code == 200
+    data = response.json()
+    assert data["message"] == "FastAPI Backend"
+    assert "docs" in data
+    assert "health" in data
 
 
 def test_health_check():
