@@ -172,7 +172,8 @@ from fastapi import BackgroundTasks
 
 def background_job(param: str):
     # Can also be async def
-    ...
+    # Use logger.info() for structured output — avoid print() in background tasks
+    logger.info(json.dumps({"event": "job_completed", "param": param}))
 
 @app.post("/api/v1/notify", status_code=202)
 async def notify(bg: BackgroundTasks):
