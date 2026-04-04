@@ -62,3 +62,10 @@ async def test_create_item_whitespace_name_returns_422(async_client: AsyncClient
 async def test_create_item_negative_price_returns_422(async_client: AsyncClient):
     response = await async_client.post("/api/items", json={"name": "Widget", "price": -1.00})
     assert response.status_code == 422
+
+
+async def test_create_item_zero_price_is_valid(async_client: AsyncClient):
+    """price=0 is the boundary value for ge=0 and must be accepted."""
+    response = await async_client.post("/api/items", json={"name": "Free Item", "price": 0})
+    assert response.status_code == 201
+    assert response.json()["item"]["price"] == 0
