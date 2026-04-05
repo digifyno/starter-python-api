@@ -95,6 +95,31 @@ def test_x_request_id_generated_when_absent():
     assert uuid_pattern.match(request_id), f"Expected UUID4, got: {request_id}"
 
 
+def test_request_id_in_log_matches_client_header(caplog):
+    """Client-supplied X-Request-ID appears in the structured log's request_id field."""
+    client = TestClient(app)
+    correlation_id = "test-log-correlation-abc123"
+    with caplog.at_level(logging.INFO):
+        response = client.get("/api/hello", headers={"X-Request-ID": correlation_id})
+    assert response.status_code == 200
+
+    log_messages = [r.getMessage() for r in caplog.records]
+    matched = None
+    for msg in log_messages:
+        try:
+            parsed = json.loads(msg)
+            if parsed.get("path") == "/api/hello":
+                matched = parsed
+                break
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    assert matched is not None, "No structured log entry found for /api/hello"
+    assert matched["request_id"] == correlation_id, (
+        f"Log request_id should match client-supplied X-Request-ID, got: {matched['request_id']}"
+    )
+
+
 def test_no_query_params_in_log(caplog):
     """Query parameters (PII risk) should NOT appear in the default log entry."""
     client = TestClient(app)
