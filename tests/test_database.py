@@ -94,12 +94,18 @@ def test_create_todo_requires_title(client):
     """POST /api/todos without a title returns 422 Unprocessable Entity."""
     response = client.post("/api/todos", json={})
     assert response.status_code == 422
+    data = response.json()
+    assert "detail" in data
+    assert "body" in data
 
 
 def test_create_todo_empty_title_returns_422(client):
     """POST /api/todos with an empty title returns 422 Unprocessable Entity."""
     response = client.post("/api/todos", json={"title": ""})
     assert response.status_code == 422
+    data = response.json()
+    assert "detail" in data
+    assert "body" in data
 
 
 def test_create_todo_whitespace_title_returns_422(client):

@@ -132,6 +132,9 @@ def test_root_returns_html_when_dist_index_exists(tmp_path, monkeypatch):
 def test_notify_invalid_email_returns_422():
     response = client.post("/api/v1/notify", json={"email": "not-an-email", "message": "hi"})
     assert response.status_code == 422
+    data = response.json()
+    assert "detail" in data
+    assert "body" in data
 
 
 def test_notify_missing_message_returns_422():
@@ -143,6 +146,9 @@ def test_notify_empty_message_returns_422():
     """Empty string message is rejected by min_length=1 on NotificationRequest.message."""
     response = client.post("/api/v1/notify", json={"email": "user@example.com", "message": ""})
     assert response.status_code == 422
+    data = response.json()
+    assert "detail" in data
+    assert "body" in data
 
 
 def test_notify_whitespace_message_returns_422():
