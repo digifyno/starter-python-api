@@ -43,6 +43,7 @@ def test_security_headers():
     assert "default-src 'self'" in csp
     assert "frame-ancestors 'none'" in csp
     assert response.headers.get("permissions-policy") is not None
+    assert response.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
 
 
 def test_unhandled_exception_returns_generic_500():
