@@ -153,6 +153,25 @@ async def read_users_me(user = Depends(get_current_user)):
     return user
 ```
 
+#### Settings as a dependency
+
+Create a single `Settings` instance at module level and expose it via `get_settings()`. Use `Depends(get_settings)` in route handlers — do **not** instantiate `Settings()` directly inside routes or create multiple instances.
+
+```python
+# main.py
+settings = Settings()  # single instance — created once at module level
+
+def get_settings() -> Settings:
+    """Return the shared Settings instance. Use with Depends() for DI."""
+    return settings
+
+@app.get("/info")
+async def info(s: Settings = Depends(get_settings)):
+    return {"app_name": s.app_name, "debug": s.debug}
+```
+
+> **Why**: Instantiating `Settings()` multiple times reads `.env` and validates environment variables on each call, creating independent objects that can diverge. The `get_settings()` wrapper ensures all code shares a single, consistent configuration object.
+
 ### Error Handling
 ```python
 from fastapi import HTTPException
@@ -170,14 +189,16 @@ async def get_item(item_id: int):
 # For retries, persistence, or distributed execution, use Celery or ARQ.
 from fastapi import BackgroundTasks
 
-def background_job(param: str):
+def background_job(email: str, message: str) -> None:
     # Can also be async def
     # Use logger.info() for structured output — avoid print() in background tasks
-    logger.info(json.dumps({"event": "job_completed", "param": param}))
+    # IMPORTANT: Do NOT log sensitive parameters (e.g., message body, passwords).
+    # Log only non-sensitive identifiers needed for correlation/debugging.
+    logger.info(json.dumps({"event": "job_completed", "email": email}))
 
 @app.post("/api/v1/notify", status_code=202)
 async def notify(bg: BackgroundTasks):
-    bg.add_task(background_job, "value")
+    bg.add_task(background_job, "user@example.com", "Hello!")
     return {"status": "queued"}
 ```
 
