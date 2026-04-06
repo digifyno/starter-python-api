@@ -141,3 +141,24 @@ def test_no_query_params_in_log(caplog):
                 )
         except (json.JSONDecodeError, ValueError):
             pass
+
+
+def test_notification_log_omits_message_body(caplog):
+    """Background task log must not contain message content (PII protection)."""
+    import logging
+    from fastapi.testclient import TestClient
+    from main import app
+
+    client = TestClient(app)
+    sensitive_message = "secret-payload-12345"
+    with caplog.at_level(logging.INFO):
+        response = client.post(
+            "/api/v1/notify",
+            json={"email": "test@example.com", "message": sensitive_message},
+        )
+    assert response.status_code == 202
+
+    for record in caplog.records:
+        assert sensitive_message not in record.getMessage(), (
+            "Notification message body must not appear in logs"
+        )
