@@ -65,10 +65,9 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-@lru_cache
 def get_settings() -> Settings:
     """Return cached Settings instance. Use with FastAPI Depends() for DI."""
-    return Settings()
+    return settings
 
 
 STARTUP_TIME = time.time()

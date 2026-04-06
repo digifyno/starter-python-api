@@ -20,11 +20,9 @@ def test_settings_env_override(monkeypatch):
     monkeypatch.setenv("DEBUG", "true")
     monkeypatch.setenv("ALLOWED_ORIGINS", '["http://example.com"]')
 
-    from importlib import reload
-    import main as main_module
+    from main import Settings
 
-    reload(main_module)
-    s = main_module.Settings()
+    s = Settings()
     assert s.app_name == "My Custom App"
     assert s.debug is True
     assert "http://example.com" in s.allowed_origins
@@ -58,10 +56,12 @@ def test_get_settings_returns_settings_instance():
 
 def test_info_route_uses_settings():
     """GET /info returns app_name and debug from settings."""
+    from importlib import reload
     from fastapi.testclient import TestClient
-    from main import app
+    import main as main_module
 
-    client = TestClient(app)
+    reload(main_module)
+    client = TestClient(main_module.app)
     response = client.get("/info")
     assert response.status_code == 200
     data = response.json()
