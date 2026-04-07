@@ -162,3 +162,15 @@ def test_notification_log_omits_message_body(caplog):
         assert sensitive_message not in record.getMessage(), (
             "Notification message body must not appear in logs"
         )
+
+    # Positive: verify the notification_sent event IS logged
+    notification_logs = []
+    for record in caplog.records:
+        try:
+            parsed = json.loads(record.getMessage())
+            if parsed.get("event") == "notification_sent":
+                notification_logs.append(parsed)
+        except (json.JSONDecodeError, ValueError):
+            pass
+    assert len(notification_logs) == 1, "Expected exactly one notification_sent log entry"
+    assert notification_logs[0]["email"] == "test@example.com"
