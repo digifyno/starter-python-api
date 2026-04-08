@@ -162,7 +162,7 @@ Create a single `Settings` instance at module level and expose it via `get_setti
 settings = Settings()  # single instance — created once at module level
 
 def get_settings() -> Settings:
-    """Return the shared Settings instance. Use with Depends() for DI."""
+    """Return the shared Settings instance. Use with FastAPI Depends() for DI."""
     return settings
 
 @app.get("/info")
