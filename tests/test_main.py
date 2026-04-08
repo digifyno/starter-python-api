@@ -163,6 +163,17 @@ def test_notify_whitespace_message_returns_422():
     assert "body" in data
 
 
+def test_notify_validation_error_echoes_request_id():
+    """validation_exception_handler echoes X-Request-ID for /api/v1/notify 422 responses."""
+    response = client.post(
+        "/api/v1/notify",
+        json={"email": "not-an-email", "message": "hi"},
+        headers={"X-Request-ID": "notify-correlation-id"},
+    )
+    assert response.status_code == 422
+    assert response.headers.get("x-request-id") == "notify-correlation-id"
+
+
 def test_validation_error_echoes_request_id():
     """validation_exception_handler includes X-Request-ID in response header."""
     response = client.post(
