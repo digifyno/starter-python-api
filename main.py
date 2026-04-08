@@ -6,7 +6,6 @@ import time
 import uuid
 from collections import Counter
 from contextlib import asynccontextmanager
-from functools import lru_cache
 
 import uvicorn
 from fastapi import BackgroundTasks, Depends, FastAPI, Request
@@ -66,7 +65,7 @@ settings = Settings()
 
 
 def get_settings() -> Settings:
-    """Return cached Settings instance. Use with FastAPI Depends() for DI."""
+    """Return the shared Settings instance. Use with FastAPI Depends() for DI."""
     return settings
 
 
