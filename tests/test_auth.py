@@ -27,6 +27,14 @@ def test_hash_password_not_plaintext():
     assert hashed != password
 
 
+def test_hash_password_is_unique_per_call():
+    """Two hashes of the same password must differ due to random salt."""
+    password = "samepassword"
+    hash1 = hash_password(password)
+    hash2 = hash_password(password)
+    assert hash1 != hash2, "bcrypt must produce a unique hash on each call (random salt)"
+
+
 def test_verify_password_correct():
     password = "correcthorsebatterystaple"
     hashed = hash_password(password)
