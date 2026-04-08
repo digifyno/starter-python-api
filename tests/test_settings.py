@@ -51,7 +51,7 @@ def test_get_settings_returns_settings_instance():
     s1 = get_settings()
     s2 = get_settings()
     assert isinstance(s1, Settings)
-    assert s1 is s2  # lru_cache returns same instance
+    assert s1 is s2  # module-level singleton — get_settings() always returns the same object
 
 
 def test_info_route_uses_settings():
