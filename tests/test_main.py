@@ -174,6 +174,20 @@ def test_validation_error_echoes_request_id():
     assert response.headers.get("x-request-id") == "test-correlation-id"
 
 
+def test_validation_error_response_includes_generated_request_id():
+    """validation_exception_handler echoes the middleware-generated UUID when client sends none."""
+    import re
+    response = client.post("/api/items", json={"price": "not-a-number"})
+    assert response.status_code == 422
+    request_id = response.headers.get("x-request-id")
+    assert request_id is not None, "X-Request-ID must be present even when client did not send one"
+    uuid_pattern = re.compile(
+        r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+        re.IGNORECASE,
+    )
+    assert uuid_pattern.match(request_id), f"Expected UUID4 in X-Request-ID, got: {request_id}"
+
+
 def test_unhandled_exception_echoes_request_id():
     """generic_exception_handler includes X-Request-ID in response when middleware sets it."""
     from fastapi import FastAPI
