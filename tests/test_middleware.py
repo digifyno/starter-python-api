@@ -50,3 +50,16 @@ def test_trusted_host_allows_known_host(monkeypatch):
     th_client = TestClient(main_module.app, base_url="http://myapp.com")
     response = th_client.get("/health")
     assert response.status_code == 200
+
+
+def test_trusted_host_disabled_in_debug_mode(monkeypatch):
+    """TrustedHostMiddleware is not registered when DEBUG=true — any host is accepted."""
+    monkeypatch.setenv("DEBUG", "true")
+    monkeypatch.setenv("ALLOWED_HOSTS", '["myapp.com"]')
+    import main as main_module
+
+    reload(main_module)
+    debug_client = TestClient(main_module.app)
+    # Even a disallowed host must be accepted in debug mode
+    response = debug_client.get("/health", headers={"Host": "evil.com"})
+    assert response.status_code == 200
