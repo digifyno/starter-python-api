@@ -89,6 +89,12 @@ def test_docs_accessible_in_debug(monkeypatch):
     assert debug_client.get("/openapi.json").status_code == 200
 
 
+def test_hello_returns_message():
+    response = client.get("/api/hello")
+    assert response.status_code == 200
+    assert response.json()["message"] == "Hello from FastAPI!"
+
+
 def test_notify_returns_202():
     response = client.post(
         "/api/v1/notify",
