@@ -216,3 +216,18 @@ async def test_lifespan_warns_when_allowed_hosts_wildcard_in_production(caplog):
             async with lifespan(main_module.app):
                 pass
     assert any("ALLOWED_HOSTS" in r.message for r in caplog.records)
+
+
+async def test_lifespan_no_warning_when_allowed_hosts_not_wildcard(caplog):
+    """Lifespan does NOT warn about ALLOWED_HOSTS when specific hosts are configured."""
+    import logging
+    from unittest.mock import patch
+    import main as main_module
+    from main import lifespan
+
+    with patch.object(main_module.settings, 'debug', False), \
+         patch.object(main_module.settings, 'allowed_hosts', ['myapp.com']):
+        with caplog.at_level(logging.WARNING):
+            async with lifespan(main_module.app):
+                pass
+    assert not any("ALLOWED_HOSTS" in r.message for r in caplog.records)
