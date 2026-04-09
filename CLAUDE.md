@@ -407,6 +407,14 @@ ALLOWED_HOSTS=["myapp.com","www.myapp.com"]
 
 When `DEBUG=true`, `TrustedHostMiddleware` is disabled and all hosts are accepted. In production (`DEBUG=false`), requests with an unrecognized `Host` header receive a `400 Bad Request` response. If `ALLOWED_HOSTS` is not set, defaults to `["*"]` (all hosts accepted — restrict this in production).
 
+If `ALLOWED_HOSTS` is `["*"]` and `DEBUG=false`, the application logs a `SECURITY WARNING` at startup:
+
+```
+SECURITY WARNING: ALLOWED_HOSTS is set to '*' in production mode. Set the ALLOWED_HOSTS environment variable to restrict accepted Host headers.
+```
+
+This warning is suppressed when specific hosts are configured (i.e., `ALLOWED_HOSTS` is set to anything other than `["*"]`). It does **not** prevent startup.
+
 ## CORS (for frontend)
 
 CORS origins are configured via the `ALLOWED_ORIGINS` environment variable (see `.env.example`).
