@@ -13,6 +13,18 @@ async def test_create_item(async_client: AsyncClient):
     assert data["status"] == "created"
     assert data["item"]["name"] == "Widget"
     assert data["item"]["price"] == 9.99
+    assert data["item"]["description"] == "A test widget"
+
+
+async def test_create_item_without_description(async_client: AsyncClient):
+    """description is optional — omitting it returns None in the response."""
+    response = await async_client.post(
+        "/api/items",
+        json={"name": "Widget", "price": 9.99},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["item"]["description"] is None
 
 
 async def test_create_item_missing_price(async_client: AsyncClient):
