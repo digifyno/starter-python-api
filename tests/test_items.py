@@ -50,8 +50,8 @@ async def test_get_item(async_client: AsyncClient):
     assert response.status_code == 200
     data = response.json()
     assert data["item_id"] == 42
-    assert "name" in data
-    assert "price" in data
+    assert data["name"] == "Item 42"
+    assert data["price"] == 99.99
 
 
 async def test_get_item_invalid_id(async_client: AsyncClient):
