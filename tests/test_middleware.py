@@ -11,7 +11,7 @@ def test_security_headers_include_hsts():
     client = TestClient(main_module.app)
     response = client.get("/health")
     hsts = response.headers.get("strict-transport-security", "")
-    assert "max-age=" in hsts, "HSTS header must include max-age directive"
+    assert "max-age=31536000" in hsts, "HSTS max-age must be 31536000 (1 year)"
     assert "includeSubDomains" in hsts, "HSTS header must include includeSubDomains"
 
 
