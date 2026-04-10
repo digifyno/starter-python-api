@@ -66,6 +66,7 @@ def test_list_todos_returns_items(client):
     assert len(data) == 1
     assert data[0]["title"] == "Write tests"
     assert data[0]["done"] is False
+    assert data[0]["id"] == 1
 
 
 def test_create_todo_returns_201(client):
