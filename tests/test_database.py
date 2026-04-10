@@ -89,6 +89,7 @@ def test_create_todo_returns_201(client):
     assert data["id"] == 42
     assert data["done"] is False
     mock_session.add.assert_called_once()  # verify item was persisted
+    mock_session.commit.assert_awaited_once()  # verify commit was awaited
 
 
 def test_create_todo_requires_title(client):
