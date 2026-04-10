@@ -122,6 +122,13 @@ def test_cors_wildcard_not_default():
     )
 
 
+def test_cors_disallowed_origin_excluded():
+    """Requests from an origin not in allowed_origins must not receive CORS headers."""
+    from main import settings
+    response = client.get("/health", headers={"Origin": "http://evil.example.com"})
+    assert response.headers.get("access-control-allow-origin") is None
+
+
 def test_root_returns_html_when_dist_index_exists(tmp_path, monkeypatch):
     """GET / returns HTMLResponse when dist/index.html exists."""
     dist = tmp_path / "dist"
