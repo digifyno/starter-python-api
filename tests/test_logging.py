@@ -143,6 +143,18 @@ def test_no_query_params_in_log(caplog):
             pass
 
 
+def test_health_response_has_no_request_id_header():
+    """RequestLoggingMiddleware skips /health — response must not carry X-Request-ID."""
+    from fastapi.testclient import TestClient
+    from main import app
+    client = TestClient(app)
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.headers.get("x-request-id") is None, (
+        "/health must not emit X-Request-ID — middleware bypass must skip header injection"
+    )
+
+
 def test_notification_log_omits_message_body(caplog):
     """Background task log must not contain message content (PII protection)."""
     import logging
