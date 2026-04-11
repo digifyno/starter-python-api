@@ -686,7 +686,7 @@ All request logs are structured JSON via the `RequestLoggingMiddleware`. Every l
 - If the client sends an `X-Request-ID` header, that value is used (pass-through for upstream correlation).
 - Otherwise a UUID4 is generated for the request.
 - The ID is stored on `request.state.request_id` so route handlers and exception handlers can access it.
-- The ID is echoed back in the `X-Request-ID` response header.
+- The ID is echoed back in the `X-Request-ID` response header (excludes `/health` — the logging middleware skips that route entirely, so no `X-Request-ID` header is set on health check responses).
 - Both `validation_exception_handler` and `generic_exception_handler` echo `request_id` in the `X-Request-ID` response header. `generic_exception_handler` also logs it in the exception message; `validation_exception_handler` does not log separately.
 
 ```python
