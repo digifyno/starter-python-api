@@ -379,7 +379,7 @@ async def notify(notification: NotificationRequest, background_tasks: Background
 
 
 class TodoCreate(BaseModel):
-    title: str = Field(min_length=1)
+    title: str = Field(min_length=1, max_length=200)
 
     @field_validator('title')
     @classmethod

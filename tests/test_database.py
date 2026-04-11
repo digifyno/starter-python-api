@@ -145,3 +145,12 @@ def test_create_todo_whitespace_title_returns_422(client):
         if "ctx" in error:
             for v in error["ctx"].values():
                 assert isinstance(v, (str, int, float, bool, type(None)))
+
+
+def test_create_todo_title_too_long_returns_422(client):
+    """POST /api/todos with a title exceeding 200 characters returns 422."""
+    response = client.post("/api/todos", json={"title": "x" * 201})
+    assert response.status_code == 422
+    data = response.json()
+    assert "detail" in data
+    assert "body" in data
