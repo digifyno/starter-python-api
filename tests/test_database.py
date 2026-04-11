@@ -93,6 +93,30 @@ def test_create_todo_returns_201(client):
     mock_session.commit.assert_awaited_once()  # verify commit was awaited
 
 
+def test_list_todos_returns_multiple_items(client):
+    """GET /api/todos returns all TodoItem rows when multiple exist."""
+    items = [
+        TodoItem(id=1, title="First task", done=False),
+        TodoItem(id=2, title="Second task", done=True),
+    ]
+    mock_session = _make_mock_db(rows=items)
+
+    async def override_get_db():
+        yield mock_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    response = client.get("/api/todos")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    assert data[0]["id"] == 1
+    assert data[0]["title"] == "First task"
+    assert data[0]["done"] is False
+    assert data[1]["id"] == 2
+    assert data[1]["title"] == "Second task"
+    assert data[1]["done"] is True
+
+
 def test_create_todo_requires_title(client):
     """POST /api/todos without a title returns 422 Unprocessable Entity."""
     response = client.post("/api/todos", json={})
