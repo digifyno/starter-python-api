@@ -89,7 +89,10 @@ def test_create_todo_returns_201(client):
     assert data["title"] == "Buy milk"
     assert data["id"] == 42
     assert data["done"] is False
-    mock_session.add.assert_called_once()  # verify item was persisted
+    mock_session.add.assert_called_once()
+    added_item = mock_session.add.call_args[0][0]
+    assert isinstance(added_item, TodoItem), "db.add must be called with a TodoItem instance"
+    assert added_item.title == "Buy milk", f"Expected title 'Buy milk', got: {added_item.title!r}"
     mock_session.commit.assert_awaited_once()  # verify commit was awaited
 
 
