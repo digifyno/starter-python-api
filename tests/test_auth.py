@@ -90,3 +90,9 @@ def test_tampered_token_raises():
     tampered = ".".join(parts)
     with pytest.raises(InvalidTokenError):
         decode_access_token(tampered, TEST_SECRET)
+
+
+def test_decode_garbage_token_raises_invalid_token_error():
+    """Completely malformed token string raises InvalidTokenError."""
+    with pytest.raises(InvalidTokenError):
+        decode_access_token("not.a.jwt", TEST_SECRET)
