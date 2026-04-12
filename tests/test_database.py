@@ -173,3 +173,22 @@ def test_create_todo_title_max_length_is_valid(client):
     assert response.status_code == 201
     data = response.json()
     assert data["title"] == "x" * 200
+
+
+def test_create_todo_title_min_length_is_valid(client):
+    """POST /api/todos with a title of exactly 1 character (min_length boundary) returns 201."""
+    async def fake_refresh(obj):
+        obj.id = 99
+        obj.done = False
+
+    mock_session = _make_mock_db()
+    mock_session.refresh = fake_refresh
+
+    async def override_get_db():
+        yield mock_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    response = client.post("/api/todos", json={"title": "x"})
+    assert response.status_code == 201
+    data = response.json()
+    assert data["title"] == "x"
