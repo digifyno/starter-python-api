@@ -363,13 +363,20 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 ```
 
-Then apply per-route overrides with `@limiter.limit()`:
+Apply `@limiter.limit()` to every route that should be rate-limited. slowapi only enforces limits on decorated routes — routes without the decorator are **not** rate-limited, even if `default_limits` is configured. Use `settings.rate_limit` to apply the configured default, or a custom string to override it:
 
 ```python
+# Apply the configured default rate limit
 @router.get("/items")
-@limiter.limit("10/minute")
+@limiter.limit(settings.rate_limit)
 async def get_items(request: Request):  # Request is required by slowapi even if unused
     return {"items": []}
+
+# Override with a stricter per-route limit
+@router.get("/expensive")
+@limiter.limit("10/minute")
+async def expensive_op(request: Request):
+    return {}
 ```
 
 > **Note:** slowapi requires `request: Request` as a parameter in every rate-limited route handler, even if the handler doesn't use it directly.
