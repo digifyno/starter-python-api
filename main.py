@@ -352,7 +352,8 @@ async def get_item(item_id: int):
 # audit logs) that don't need retries or persistence. For retries, persistence, or
 # distributed execution across processes/servers, use a proper task queue (Celery/ARQ).
 @app.post("/api/v1/notify", status_code=202)
-async def notify(notification: NotificationRequest, background_tasks: BackgroundTasks):
+@limiter.limit(settings.rate_limit)
+async def notify(request: Request, notification: NotificationRequest, background_tasks: BackgroundTasks):
     """Queue a fire-and-forget email notification."""
     background_tasks.add_task(send_notification_email, notification.email, notification.message)
     return {"status": "queued"}
