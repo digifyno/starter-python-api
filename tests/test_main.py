@@ -96,12 +96,30 @@ def test_hello_returns_message():
 
 
 def test_notify_returns_202():
-    response = client.post(
-        "/api/v1/notify",
-        json={"email": "test@example.com", "message": "Hello"},
-    )
+    from unittest.mock import patch
+    from fastapi import BackgroundTasks
+    from main import send_notification_email
+
+    recorded = []
+    original_add_task = BackgroundTasks.add_task
+
+    def spy_add_task(self, func, *args, **kwargs):
+        recorded.append((func, args, kwargs))
+        return original_add_task(self, func, *args, **kwargs)
+
+    with patch.object(BackgroundTasks, "add_task", spy_add_task):
+        response = client.post(
+            "/api/v1/notify",
+            json={"email": "test@example.com", "message": "Hello"},
+        )
+
     assert response.status_code == 202
     assert response.json() == {"status": "queued"}
+    assert len(recorded) == 1
+    func, args, _ = recorded[0]
+    assert func is send_notification_email
+    assert args[0] == "test@example.com"
+    assert args[1] == "Hello"
 
 
 def test_cors_headers_for_allowed_origin():
