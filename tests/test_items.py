@@ -104,3 +104,15 @@ async def test_create_item_zero_price_is_valid(async_client: AsyncClient):
     response = await async_client.post("/api/items", json={"name": "Free Item", "price": 0})
     assert response.status_code == 201
     assert response.json()["item"]["price"] == 0
+
+
+async def test_create_item_name_too_long_returns_422(async_client: AsyncClient):
+    """Item.name exceeding max_length=255 returns 422."""
+    response = await async_client.post(
+        "/api/items",
+        json={"name": "x" * 256, "price": 9.99},
+    )
+    assert response.status_code == 422
+    data = response.json()
+    assert "detail" in data
+    assert "body" in data

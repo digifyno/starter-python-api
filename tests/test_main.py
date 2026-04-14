@@ -194,6 +194,18 @@ def test_notify_whitespace_message_returns_422():
     assert "body" in data
 
 
+def test_notify_message_too_long_returns_422():
+    """NotificationRequest.message exceeding max_length=1000 returns 422."""
+    response = client.post(
+        "/api/v1/notify",
+        json={"email": "user@example.com", "message": "x" * 1001},
+    )
+    assert response.status_code == 422
+    data = response.json()
+    assert "detail" in data
+    assert "body" in data
+
+
 def test_notify_validation_error_echoes_request_id():
     """validation_exception_handler echoes X-Request-ID for /api/v1/notify 422 responses."""
     response = client.post(

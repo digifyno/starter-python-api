@@ -252,7 +252,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 # Models
 class Item(BaseModel):
-    name: str = Field(min_length=1)
+    name: str = Field(min_length=1, max_length=255)
     description: str | None = None
     price: float = Field(ge=0)
 
@@ -291,7 +291,7 @@ class InfoResponse(BaseModel):
 
 class NotificationRequest(BaseModel):
     email: EmailStr
-    message: str = Field(min_length=1)
+    message: str = Field(min_length=1, max_length=1000)
 
     @field_validator('message')
     @classmethod
