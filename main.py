@@ -337,13 +337,15 @@ async def hello(request: Request):
 
 
 @app.post("/api/items", response_model=CreateItemResponse, status_code=201)
-async def create_item(item: Item):
+@limiter.limit(settings.rate_limit)
+async def create_item(request: Request, item: Item):
     """Create a new item"""
     return {"status": "created", "item": item}
 
 
 @app.get("/api/items/{item_id}", response_model=ItemResponse)
-async def get_item(item_id: int):
+@limiter.limit(settings.rate_limit)
+async def get_item(request: Request, item_id: int):
     """Get item by ID"""
     return {"item_id": item_id, "name": f"Item {item_id}", "price": 99.99}
 
@@ -401,14 +403,16 @@ class TodoOut(BaseModel):
 # EXAMPLE: Async SQLAlchemy with dependency injection.
 # These routes demonstrate the async database pattern — adapt for your domain.
 @app.get("/api/todos", response_model=list[TodoOut], tags=["todos"])
-async def list_todos(db: AsyncSession = Depends(get_db)):
+@limiter.limit(settings.rate_limit)
+async def list_todos(request: Request, db: AsyncSession = Depends(get_db)):
     """List all todo items. Demonstrates async SQLAlchemy query via Depends(get_db)."""
     result = await db.execute(select(TodoItem))
     return result.scalars().all()
 
 
 @app.post("/api/todos", response_model=TodoOut, status_code=201, tags=["todos"])
-async def create_todo(todo: TodoCreate, db: AsyncSession = Depends(get_db)):
+@limiter.limit(settings.rate_limit)
+async def create_todo(request: Request, todo: TodoCreate, db: AsyncSession = Depends(get_db)):
     """Create a todo item. Demonstrates async SQLAlchemy write via Depends(get_db)."""
     item = TodoItem(title=todo.title)
     db.add(item)

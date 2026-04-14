@@ -44,6 +44,58 @@ def test_rate_limit_exceeded_on_notify(monkeypatch):
     assert 202 in status_codes
 
 
+def test_rate_limit_exceeded_on_create_item(monkeypatch):
+    """slowapi rate limiter returns 429 for POST /api/items when limit is exceeded."""
+    monkeypatch.setenv("RATE_LIMIT", "2/minute")
+    from importlib import reload
+    import main as main_module
+    reload(main_module)
+    rl_client = TestClient(main_module.app)
+    responses = [
+        rl_client.post("/api/items", json={"name": "Widget", "price": 9.99})
+        for _ in range(4)
+    ]
+    status_codes = [r.status_code for r in responses]
+    assert 429 in status_codes
+    assert 201 in status_codes
+
+
+def test_rate_limit_exceeded_on_create_todo(monkeypatch):
+    """slowapi rate limiter returns 429 for POST /api/todos when limit is exceeded."""
+    from importlib import reload
+    from unittest.mock import AsyncMock, MagicMock
+    from database import TodoItem, get_db
+
+    monkeypatch.setenv("RATE_LIMIT", "2/minute")
+    import main as main_module
+    reload(main_module)
+
+    # Mock the DB so the test runs without a real database
+    mock_session = AsyncMock()
+    async def fake_refresh(obj):
+        obj.id = 1
+        obj.done = False
+    mock_session.add = MagicMock()
+    mock_session.commit = AsyncMock()
+    mock_session.refresh = fake_refresh
+
+    async def override_get_db():
+        yield mock_session
+
+    main_module.app.dependency_overrides[get_db] = override_get_db
+    rl_client = TestClient(main_module.app)
+    try:
+        responses = [
+            rl_client.post("/api/todos", json={"title": "Task"})
+            for _ in range(4)
+        ]
+    finally:
+        main_module.app.dependency_overrides.pop(get_db, None)
+    status_codes = [r.status_code for r in responses]
+    assert 429 in status_codes
+    assert 201 in status_codes
+
+
 def test_trusted_host_rejects_unknown_host(monkeypatch):
     """TrustedHostMiddleware returns 400 for requests with an unknown Host header."""
     monkeypatch.setenv("DEBUG", "false")
