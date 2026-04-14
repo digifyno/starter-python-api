@@ -26,6 +26,11 @@ def test_rate_limit_exceeded(monkeypatch):
     status_codes = [r.status_code for r in responses]
     assert 429 in status_codes, "Rate limiter should return 429 when limit is exceeded"
     assert 200 in status_codes, "Rate limiter should allow requests within the limit"
+    limit_responses = [r for r in responses if r.status_code == 429]
+    assert len(limit_responses) > 0
+    body = limit_responses[0].json()
+    assert "detail" in body, f"429 body must use 'detail' key, got: {body}"
+    assert "error" not in body, f"429 body must not use legacy 'error' key, got: {body}"
 
 
 def test_rate_limit_exceeded_on_notify(monkeypatch):
