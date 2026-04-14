@@ -4,12 +4,12 @@ from pydantic import ValidationError
 
 
 def test_settings_defaults(monkeypatch):
-    """Settings class has sensible defaults without any env vars."""
+    """Settings class has sensible defaults without any env vars or .env file."""
     for var in ("SECRET_KEY", "DEBUG", "APP_NAME", "ALLOWED_ORIGINS", "ALLOWED_HOSTS", "RATE_LIMIT"):
         monkeypatch.delenv(var, raising=False)
     from main import Settings
 
-    s = Settings()
+    s = Settings(_env_file=None)  # prevent local .env file from contaminating defaults test
     assert s.app_name == "FastAPI Starter"
     assert s.debug is False
     assert s.secret_key == "change-me-in-production-not-for-real-use"
