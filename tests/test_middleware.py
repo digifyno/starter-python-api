@@ -145,6 +145,32 @@ def test_rate_limit_exceeded_on_list_todos(monkeypatch):
     assert 200 in status_codes, "Rate limiter should allow requests within the limit"
 
 
+def test_rate_limit_exceeded_on_root(monkeypatch):
+    """slowapi rate limiter returns 429 for GET / when limit is exceeded."""
+    monkeypatch.setenv("RATE_LIMIT", "2/minute")
+    from importlib import reload
+    import main as main_module
+    reload(main_module)
+    rl_client = TestClient(main_module.app)
+    responses = [rl_client.get("/") for _ in range(4)]
+    status_codes = [r.status_code for r in responses]
+    assert 429 in status_codes
+    assert 200 in status_codes
+
+
+def test_rate_limit_exceeded_on_info(monkeypatch):
+    """slowapi rate limiter returns 429 for GET /info when limit is exceeded."""
+    monkeypatch.setenv("RATE_LIMIT", "2/minute")
+    from importlib import reload
+    import main as main_module
+    reload(main_module)
+    rl_client = TestClient(main_module.app)
+    responses = [rl_client.get("/info") for _ in range(4)]
+    status_codes = [r.status_code for r in responses]
+    assert 429 in status_codes
+    assert 200 in status_codes
+
+
 def test_trusted_host_rejects_unknown_host(monkeypatch):
     """TrustedHostMiddleware returns 400 for requests with an unknown Host header."""
     monkeypatch.setenv("DEBUG", "false")

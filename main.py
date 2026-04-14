@@ -310,7 +310,8 @@ def send_notification_email(email: str, message: str) -> None:
 
 # Routes
 @app.get("/")
-def root():
+@limiter.limit(settings.rate_limit)
+def root(request: Request):
     """Serve the main HTML page if dist/index.html exists, otherwise return API info"""
     if os.path.exists("dist/index.html"):
         with open("dist/index.html", "r") as f:
@@ -333,7 +334,8 @@ async def health_check():
 
 
 @app.get("/info", tags=["info"], response_model=InfoResponse)
-async def info(s: Settings = Depends(get_settings)):
+@limiter.limit(settings.rate_limit)
+async def info(request: Request, s: Settings = Depends(get_settings)):
     """Application info — demonstrates pydantic-settings dependency injection."""
     return {"app_name": s.app_name, "debug": s.debug}
 
