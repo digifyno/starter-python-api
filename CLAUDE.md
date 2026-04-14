@@ -366,11 +366,16 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 Apply `@limiter.limit()` to every route that should be rate-limited. slowapi only enforces limits on decorated routes — routes without the decorator are **not** rate-limited, even if `default_limits` is configured. Use `settings.rate_limit` to apply the configured default, or a custom string to override it:
 
 ```python
-# Apply the configured default rate limit
+# Apply the configured default rate limit — decorate every method (GET, POST, etc.)
 @router.get("/items")
 @limiter.limit(settings.rate_limit)
 async def get_items(request: Request):  # Request is required by slowapi even if unused
     return {"items": []}
+
+@router.post("/items")
+@limiter.limit(settings.rate_limit)
+async def create_item(request: Request, item: Item):
+    return {"created": item}
 
 # Override with a stricter per-route limit
 @router.get("/expensive")
@@ -631,6 +636,22 @@ def test_rate_limit_exceeded(monkeypatch):
 ```
 
 > **Why reload?** The `limiter` object is module-level state in `main.py`. Without a reload, hit counts from previous tests accumulate and can cause unrelated tests to receive unexpected 429 responses. The `monkeypatch` + `reload` pattern creates a fresh module with a clean limiter and a low `RATE_LIMIT` so the test doesn't need to fire 100+ requests.
+
+**Testing Settings defaults**: `Settings()` reads environment variables (and `.env`) at instantiation. Without clearing them first, a developer's local `.env` can contaminate tests that verify default values. Use `monkeypatch.delenv()` to clear relevant env vars before constructing `Settings`:
+
+```python
+def test_settings_defaults(monkeypatch):
+    """Settings class has sensible defaults without any env vars."""
+    for var in ("SECRET_KEY", "DEBUG", "APP_NAME", "ALLOWED_ORIGINS", "ALLOWED_HOSTS", "RATE_LIMIT"):
+        monkeypatch.delenv(var, raising=False)
+    from main import Settings
+
+    s = Settings()
+    assert s.app_name == "FastAPI Starter"
+    assert s.debug is False
+```
+
+> **Why**: Without `monkeypatch.delenv()`, a `.env` file with custom values (e.g. `APP_NAME=MyApp`) silently overrides the expected defaults and the test passes locally but describes the wrong behavior. `raising=False` makes the call a no-op when the variable is not set.
 
 ### Sync alternative (quick checks)
 
