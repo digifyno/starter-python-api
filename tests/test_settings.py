@@ -3,8 +3,10 @@ import pytest
 from pydantic import ValidationError
 
 
-def test_settings_defaults():
+def test_settings_defaults(monkeypatch):
     """Settings class has sensible defaults without any env vars."""
+    for var in ("SECRET_KEY", "DEBUG", "APP_NAME", "ALLOWED_ORIGINS", "ALLOWED_HOSTS", "RATE_LIMIT"):
+        monkeypatch.delenv(var, raising=False)
     from main import Settings
 
     s = Settings()
