@@ -101,6 +101,50 @@ def test_rate_limit_exceeded_on_create_todo(monkeypatch):
     assert 201 in status_codes
 
 
+def test_rate_limit_exceeded_on_get_item(monkeypatch):
+    """slowapi rate limiter returns 429 for GET /api/items/{item_id} when limit is exceeded."""
+    monkeypatch.setenv("RATE_LIMIT", "2/minute")
+    from importlib import reload
+    import main as main_module
+    reload(main_module)
+    rl_client = TestClient(main_module.app)
+    responses = [rl_client.get("/api/items/1") for _ in range(4)]
+    status_codes = [r.status_code for r in responses]
+    assert 429 in status_codes, "Rate limiter should return 429 when limit is exceeded"
+    assert 200 in status_codes, "Rate limiter should allow requests within the limit"
+
+
+def test_rate_limit_exceeded_on_list_todos(monkeypatch):
+    """slowapi rate limiter returns 429 for GET /api/todos when limit is exceeded."""
+    from importlib import reload
+    from unittest.mock import AsyncMock, MagicMock
+    from database import get_db
+
+    monkeypatch.setenv("RATE_LIMIT", "2/minute")
+    import main as main_module
+    reload(main_module)
+
+    mock_session = AsyncMock()
+    scalars = MagicMock()
+    scalars.all.return_value = []
+    execute_result = MagicMock()
+    execute_result.scalars.return_value = scalars
+    mock_session.execute = AsyncMock(return_value=execute_result)
+
+    async def override_get_db():
+        yield mock_session
+
+    main_module.app.dependency_overrides[get_db] = override_get_db
+    rl_client = TestClient(main_module.app)
+    try:
+        responses = [rl_client.get("/api/todos") for _ in range(4)]
+    finally:
+        main_module.app.dependency_overrides.pop(get_db, None)
+    status_codes = [r.status_code for r in responses]
+    assert 429 in status_codes, "Rate limiter should return 429 when limit is exceeded"
+    assert 200 in status_codes, "Rate limiter should allow requests within the limit"
+
+
 def test_trusted_host_rejects_unknown_host(monkeypatch):
     """TrustedHostMiddleware returns 400 for requests with an unknown Host header."""
     monkeypatch.setenv("DEBUG", "false")
