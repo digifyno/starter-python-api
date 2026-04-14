@@ -301,7 +301,7 @@ def send_notification_email(email: str, message: str) -> None:
 
 # Routes
 @app.get("/")
-async def root():
+def root():
     """Serve the main HTML page if dist/index.html exists, otherwise return API info"""
     if os.path.exists("dist/index.html"):
         with open("dist/index.html", "r") as f:
