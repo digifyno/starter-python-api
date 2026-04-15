@@ -8,13 +8,15 @@ from collections import Counter
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import BackgroundTasks, Depends, FastAPI, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, Security
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from slowapi import Limiter
@@ -24,6 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from auth import create_access_token, decode_access_token, hash_password, verify_password
 from database import Base, TodoItem, engine, get_db
 
 logging.basicConfig(
@@ -301,6 +304,36 @@ class NotificationRequest(BaseModel):
         return v
 
 
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=8)
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+# In-memory user store (replace with DB in production)
+_users: dict[str, str] = {}  # username -> hashed_password
+
+_security = HTTPBearer()
+
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Security(_security)):
+    try:
+        return decode_access_token(credentials.credentials, settings.secret_key)
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
 # Background task function — simulates a fire-and-forget email notification.
 # async def can also be used here for non-blocking I/O in the background.
 def send_notification_email(email: str, message: str) -> None:
@@ -390,6 +423,34 @@ async def notify(request: Request, notification: NotificationRequest, background
 # def example_sync_route():
 #     # result = some_sync_library.compute()  ← CPU-bound or sync-only library
 #     return {"message": "Hello from sync route"}
+
+
+@app.post("/api/auth/register", status_code=201, tags=["auth"])
+@limiter.limit(settings.rate_limit)
+async def register(request: Request, body: RegisterRequest):
+    """Register a new user."""
+    if body.username in _users:
+        raise HTTPException(status_code=409, detail="Username already taken")
+    _users[body.username] = hash_password(body.password)
+    return {"status": "registered"}
+
+
+@app.post("/api/auth/login", response_model=TokenResponse, tags=["auth"])
+@limiter.limit(settings.rate_limit)
+async def login(request: Request, body: LoginRequest):
+    """Authenticate and return a JWT bearer token."""
+    hashed = _users.get(body.username)
+    if not hashed or not verify_password(body.password, hashed):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    token = create_access_token({"sub": body.username}, settings.secret_key)
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@app.get("/api/me", tags=["auth"])
+@limiter.limit(settings.rate_limit)
+async def me(request: Request, user=Depends(get_current_user)):
+    """Return the authenticated user's username."""
+    return {"username": user["sub"]}
 
 
 class TodoCreate(BaseModel):
