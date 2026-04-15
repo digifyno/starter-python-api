@@ -95,7 +95,8 @@ async def lifespan(app: FastAPI):
         )
     logger.info("Starting up")
     yield
-    await engine.dispose()
+    if engine is not None:
+        await engine.dispose()
     logger.info("Shutting down")
 
 
