@@ -177,7 +177,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.url.path == "/health":
             return await call_next(request)
-        request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+        raw_request_id = request.headers.get("X-Request-ID", "")
+        request_id = raw_request_id[:128] if raw_request_id else str(uuid.uuid4())
         request.state.request_id = request_id
         start = time.perf_counter()
         response = await call_next(request)

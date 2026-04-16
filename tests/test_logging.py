@@ -155,6 +155,17 @@ def test_health_response_has_no_request_id_header():
     )
 
 
+def test_oversized_request_id_is_capped():
+    """X-Request-ID longer than 128 chars is capped before being echoed."""
+    from fastapi.testclient import TestClient
+    from main import app
+    client = TestClient(app)
+    oversized = "a" * 512
+    response = client.get("/api/hello", headers={"X-Request-ID": oversized})
+    echoed = response.headers.get("x-request-id", "")
+    assert len(echoed) <= 128, f"Echoed X-Request-ID must be capped at 128 chars, got {len(echoed)}"
+
+
 def test_notification_log_omits_message_body(caplog):
     """Background task log must not contain message content (PII protection)."""
     import logging
