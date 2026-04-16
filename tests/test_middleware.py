@@ -171,6 +171,23 @@ def test_rate_limit_exceeded_on_info(monkeypatch):
     assert 200 in status_codes
 
 
+def test_rate_limit_response_echoes_request_id(monkeypatch):
+    """429 rate-limit responses must include X-Request-ID for log correlation."""
+    monkeypatch.setenv("RATE_LIMIT", "1/minute")
+    import main as main_module
+
+    reload(main_module)
+    rl_client = TestClient(main_module.app)
+    # First request succeeds
+    rl_client.get("/api/hello", headers={"X-Request-ID": "trace-abc"})
+    # Second request is rate-limited
+    response = rl_client.get("/api/hello", headers={"X-Request-ID": "trace-abc"})
+    assert response.status_code == 429
+    assert response.headers.get("x-request-id") == "trace-abc", (
+        "429 response must echo X-Request-ID for client-side correlation"
+    )
+
+
 def test_trusted_host_rejects_unknown_host(monkeypatch):
     """TrustedHostMiddleware returns 400 for requests with an unknown Host header."""
     monkeypatch.setenv("DEBUG", "false")
