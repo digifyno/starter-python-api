@@ -290,6 +290,10 @@ class InfoResponse(BaseModel):
     debug: bool
 
 
+class NotificationQueuedResponse(BaseModel):
+    status: str
+
+
 class NotificationRequest(BaseModel):
     email: EmailStr
     message: str = Field(min_length=1, max_length=1000)
@@ -365,7 +369,7 @@ async def get_item(request: Request, item_id: int):
 # BackgroundTasks is appropriate for fast, fire-and-forget operations (email hooks,
 # audit logs) that don't need retries or persistence. For retries, persistence, or
 # distributed execution across processes/servers, use a proper task queue (Celery/ARQ).
-@app.post("/api/v1/notify", status_code=202)
+@app.post("/api/v1/notify", status_code=202, response_model=NotificationQueuedResponse)
 @limiter.limit(settings.rate_limit)
 async def notify(request: Request, notification: NotificationRequest, background_tasks: BackgroundTasks):
     """Queue a fire-and-forget email notification."""
