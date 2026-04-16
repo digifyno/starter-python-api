@@ -206,6 +206,16 @@ def test_notify_message_too_long_returns_422():
     assert "body" in data
 
 
+def test_notify_message_exactly_1000_chars_is_valid():
+    """NotificationRequest.message at exactly max_length=1000 characters must be accepted."""
+    response = client.post(
+        "/api/v1/notify",
+        json={"email": "user@example.com", "message": "x" * 1000},
+    )
+    assert response.status_code == 202
+    assert response.json() == {"status": "queued"}
+
+
 def test_notify_validation_error_echoes_request_id():
     """validation_exception_handler echoes X-Request-ID for /api/v1/notify 422 responses."""
     response = client.post(

@@ -116,3 +116,13 @@ async def test_create_item_name_too_long_returns_422(async_client: AsyncClient):
     data = response.json()
     assert "detail" in data
     assert "body" in data
+
+
+async def test_create_item_name_exactly_255_chars_is_valid(async_client: AsyncClient):
+    """Item.name at exactly max_length=255 characters must be accepted."""
+    response = await async_client.post(
+        "/api/items",
+        json={"name": "x" * 255, "price": 9.99},
+    )
+    assert response.status_code == 201
+    assert response.json()["item"]["name"] == "x" * 255
