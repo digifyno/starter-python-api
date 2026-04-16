@@ -711,7 +711,7 @@ All request logs are structured JSON via the `RequestLoggingMiddleware`. Every l
 
 ### Correlation ID pattern
 
-- If the client sends an `X-Request-ID` header, that value is used (pass-through for upstream correlation).
+- If the client sends an `X-Request-ID` header, that value is used (pass-through for upstream correlation). The value is capped at 128 characters to prevent log-bloat attacks.
 - Otherwise a UUID4 is generated for the request.
 - The ID is stored on `request.state.request_id` so route handlers and exception handlers can access it.
 - The ID is echoed back in the `X-Request-ID` response header (excludes `/health` — the logging middleware skips that route entirely, so no `X-Request-ID` header is set on health check responses).
