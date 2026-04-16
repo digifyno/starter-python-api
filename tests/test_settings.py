@@ -24,7 +24,7 @@ def test_settings_env_override(monkeypatch):
 
     from main import Settings
 
-    s = Settings()
+    s = Settings(_env_file=None)  # prevent local .env from contaminating overrides test
     assert s.app_name == "My Custom App"
     assert s.debug is True
     assert "http://example.com" in s.allowed_origins
