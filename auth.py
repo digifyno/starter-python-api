@@ -9,7 +9,10 @@ from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 
 def hash_password(password: str) -> str:
     """Hash a plaintext password using bcrypt."""
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
+    encoded = password.encode()
+    if len(encoded) > 72:
+        raise ValueError("Password must not exceed 72 bytes (bcrypt limit)")
+    return bcrypt.hashpw(encoded, bcrypt.gensalt(rounds=12)).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:

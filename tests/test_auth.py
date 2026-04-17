@@ -62,6 +62,12 @@ def test_verify_password_with_truncated_hash_returns_false():
     assert verify_password("password", full_hash[:10]) is False
 
 
+def test_hash_password_rejects_over_72_bytes():
+    """Passwords exceeding 72 bytes must raise ValueError (bcrypt 5.x limit)."""
+    with pytest.raises(ValueError, match="72 bytes"):
+        hash_password("a" * 73)
+
+
 def test_verify_password_uses_fast_rounds():
     """Ensure tests don't accidentally use slow rounds — bcrypt with rounds=4 is fast enough."""
     fast_hash = bcrypt.hashpw(b"pass", bcrypt.gensalt(rounds=4)).decode()
