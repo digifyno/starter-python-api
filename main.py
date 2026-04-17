@@ -43,6 +43,18 @@ class Settings(BaseSettings):
     allowed_hosts: list[str] = ["*"]  # Override in production: ALLOWED_HOSTS=["yourdomain.com"]
     rate_limit: str = "100/minute"  # Override via RATE_LIMIT env var
 
+    @field_validator('rate_limit')
+    @classmethod
+    def rate_limit_must_be_valid_format(cls, v: str) -> str:
+        import re
+        pattern = re.compile(r'^\d+/(second|minute|hour|day)s?$', re.IGNORECASE)
+        if not pattern.match(v.strip()):
+            raise ValueError(
+                f'RATE_LIMIT must be in format "<count>/<period>" '
+                f'(e.g. "100/minute", "10/second"). Got: {v!r}'
+            )
+        return v
+
     @field_validator('secret_key')
     @classmethod
     def secret_key_must_be_strong(cls, v: str) -> str:
