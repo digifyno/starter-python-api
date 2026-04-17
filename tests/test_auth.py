@@ -46,6 +46,22 @@ def test_verify_password_wrong():
     assert verify_password("wrongpassword", hashed) is False
 
 
+def test_verify_password_with_empty_hash_returns_false():
+    """Empty string hash must return False, not raise ValueError."""
+    assert verify_password("anypassword", "") is False
+
+
+def test_verify_password_with_malformed_hash_returns_false():
+    """Garbage hash string must return False, not raise ValueError."""
+    assert verify_password("anypassword", "not-a-bcrypt-hash") is False
+
+
+def test_verify_password_with_truncated_hash_returns_false():
+    """A truncated bcrypt hash must return False, not raise ValueError."""
+    full_hash = hash_password("password")
+    assert verify_password("password", full_hash[:10]) is False
+
+
 def test_verify_password_uses_fast_rounds():
     """Ensure tests don't accidentally use slow rounds — bcrypt with rounds=4 is fast enough."""
     fast_hash = bcrypt.hashpw(b"pass", bcrypt.gensalt(rounds=4)).decode()
