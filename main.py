@@ -1,35 +1,28 @@
-import json
 import logging
 import math
 import os
 import time
-import uuid
 from collections import Counter
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import BackgroundTasks, Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.middleware.base import BaseHTTPMiddleware
 
-from database import Base, TodoItem, engine, get_db
+from database import Base, engine
+from routes import HealthResponse, HelloResponse, InfoResponse
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -39,37 +32,28 @@ class Settings(BaseSettings):
     app_name: str = "FastAPI Starter"
     debug: bool = False
     secret_key: str = "change-me-in-production-not-for-real-use"
-    allowed_origins: list[str] = ["http://localhost:3000"]  # Override via ALLOWED_ORIGINS env var
-    allowed_hosts: list[str] = ["*"]  # Override in production: ALLOWED_HOSTS=["yourdomain.com"]
-    rate_limit: str = "100/minute"  # Override via RATE_LIMIT env var
+    allowed_origins: list[str] = ["http://localhost:3000"]
+    allowed_hosts: list[str] = ["*"]
+    rate_limit: str = "100/minute"
 
     @field_validator('rate_limit')
     @classmethod
     def rate_limit_must_be_valid_format(cls, v: str) -> str:
         import re
-        pattern = re.compile(r'^[1-9]\d*/(second|minute|hour|day)s?$', re.IGNORECASE)
-        if not pattern.match(v.strip()):
-            raise ValueError(
-                f'RATE_LIMIT must be in format "<count>/<period>" '
-                f'(e.g. "100/minute", "10/second"). Got: {v!r}'
-            )
+        if not re.compile(r'^[1-9]\d*/(second|minute|hour|day)s?$', re.IGNORECASE).match(v.strip()):
+            raise ValueError(f'RATE_LIMIT must be in format "<count>/<period>" (e.g. "100/minute"). Got: {v!r}')
         return v
 
     @field_validator('secret_key')
     @classmethod
     def secret_key_must_be_strong(cls, v: str) -> str:
+        _gen = 'python -c "import secrets; print(secrets.token_hex(32))"'
         if len(v) < 32:
-            raise ValueError(
-                'SECRET_KEY must be at least 32 characters. '
-                'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
-            )
+            raise ValueError(f'SECRET_KEY must be at least 32 characters. Generate with: {_gen}')
         counts = Counter(v)
         entropy = -sum((c / len(v)) * math.log2(c / len(v)) for c in counts.values())
         if entropy < 3.0:
-            raise ValueError(
-                'SECRET_KEY entropy too low — use a randomly generated key. '
-                'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
-            )
+            raise ValueError(f'SECRET_KEY entropy too low — use a randomly generated key. Generate with: {_gen}')
         return v
 
 
@@ -77,7 +61,6 @@ settings = Settings()
 
 
 def get_settings() -> Settings:
-    """Return the shared Settings instance. Use with FastAPI Depends() for DI."""
     return settings
 
 
@@ -85,25 +68,32 @@ STARTUP_TIME = time.time()
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[settings.rate_limit])
 
+# Evict route modules so reloading main re-evaluates their @limiter.limit() decorators.
+import sys as _sys
+for _mod in ("routes.items", "routes.todos", "routes.notify"):
+    _sys.modules.pop(_mod, None)
+
+from middleware.request_logging import RequestLoggingMiddleware  # noqa: E402
+from middleware.security_headers import SecurityHeadersMiddleware  # noqa: E402
+from routes.items import router as items_router  # noqa: E402
+from routes.notify import router as notify_router  # noqa: E402
+from routes.todos import router as todos_router  # noqa: E402
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables when DATABASE_URL is configured.
-    # For production, use Alembic migrations instead of create_all.
     if engine is not None:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
     if not settings.debug and settings.allowed_hosts == ["*"]:
         logger.warning(
             "SECURITY WARNING: ALLOWED_HOSTS is set to '*' in production mode. "
-            "Set the ALLOWED_HOSTS environment variable to restrict accepted Host headers. "
-            'Example: ALLOWED_HOSTS=["myapp.com","www.myapp.com"]'
+            'Set ALLOWED_HOSTS env var to restrict accepted Host headers. Example: ALLOWED_HOSTS=["myapp.com"]'
         )
     if not settings.debug and settings.secret_key == "change-me-in-production-not-for-real-use":
         logger.warning(
             "SECURITY WARNING: SECRET_KEY is set to the publicly known default value. "
-            "This key is not secret. Set a randomly generated key: "
-            'python -c \'import secrets; print(secrets.token_hex(32))\''
+            'This key is not secret. Rotate before deploying: python -c "import secrets; print(secrets.token_hex(32))"'
         )
     logger.info("Starting up")
     yield
@@ -113,29 +103,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Python FastAPI Starter",
-    description="A minimal FastAPI backend starter template",
-    version="1.0.0",
-    debug=settings.debug,
-    lifespan=lifespan,
-    # Disable interactive docs in production to avoid schema exposure
+    title="Python FastAPI Starter", description="A minimal FastAPI backend starter template",
+    version="1.0.0", debug=settings.debug, lifespan=lifespan,
     docs_url="/docs" if settings.debug else None,
     redoc_url="/redoc" if settings.debug else None,
     openapi_url="/openapi.json" if settings.debug else None,
 )
 app.state.limiter = limiter
-
-
-async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
-    return JSONResponse(
-        status_code=429,
-        content={"detail": f"Rate limit exceeded: {exc.detail}"},
-    )
-
-
-app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
-
-# 1. CORS — reads from settings.allowed_origins (set via ALLOWED_ORIGINS env var, not wildcard!)
+app.add_exception_handler(
+    RateLimitExceeded,
+    lambda req, exc: JSONResponse(status_code=429, content={"detail": f"Rate limit exceeded: {exc.detail}"}),
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
@@ -143,95 +121,22 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
     allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
 )
-
-# 2. GZip compression for responses > 1000 bytes
 app.add_middleware(GZipMiddleware, minimum_size=1000)
-
-# In production, set ALLOWED_HOSTS=["yourdomain.com"] to restrict host header spoofing
-# 3. Trusted host validation (configure via settings in prod)
 if not settings.debug:
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=settings.allowed_hosts,
-    )
-
-
-# 4. Security headers middleware
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "0"  # Disable legacy header (deprecated by browsers)
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data:; "
-            "frame-ancestors 'none';"
-        )
-        response.headers["Permissions-Policy"] = (
-            "geolocation=(), microphone=(), camera=()"
-        )
-        # HSTS: enforce HTTPS for 1 year. Also configure at nginx level for
-        # preloading and to protect the initial HTTP request before redirect.
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        return response
-
-
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 app.add_middleware(SecurityHeadersMiddleware)
-
-
-# 5. Request logging middleware — logs method, path, status, duration_ms as JSON.
-#    /health is excluded to reduce noise. No query params or body (no PII).
-#    Generates or echoes X-Request-ID header for log correlation across services.
-class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        if request.url.path == "/health":
-            return await call_next(request)
-        raw_request_id = request.headers.get("X-Request-ID", "")
-        request_id = raw_request_id[:128] if raw_request_id else str(uuid.uuid4())
-        request.state.request_id = request_id
-        start = time.perf_counter()
-        response = await call_next(request)
-        duration_ms = round((time.perf_counter() - start) * 1000, 2)
-        logger.info(
-            json.dumps({
-                "request_id": request_id,
-                "method": request.method,
-                "path": request.url.path,
-                "status": response.status_code,
-                "duration_ms": duration_ms,
-            })
-        )
-        response.headers["X-Request-ID"] = request_id
-        return response
-
-
 app.add_middleware(RequestLoggingMiddleware)
-
-# Serve static files from dist/ directory
-if os.path.exists("dist"):
-    app.mount("/static", StaticFiles(directory="dist"), name="static")
+if os.path.exists("dist"): app.mount("/static", StaticFiles(directory="dist"), name="static")  # noqa: E701
 
 
-# Exception handlers
 def _serializable_errors(errors: list) -> list:
-    """Convert Pydantic v2 validation errors to JSON-serializable dicts.
-
-    field_validator raises store the original exception in ctx['error'], which
-    is not JSON serializable. Convert any non-primitive ctx values to strings.
-    """
+    # field_validator stores exception in ctx['error'], which is not JSON serializable.
     result = []
-    for err in errors:
-        err = dict(err)
-        if 'ctx' in err:
-            err['ctx'] = {
-                k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
-                for k, v in err['ctx'].items()
-            }
-        result.append(err)
+    for e in errors:
+        e = dict(e)
+        if 'ctx' in e:
+            e['ctx'] = {k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v for k, v in e['ctx'].items()}
+        result.append(e)
     return result
 
 
@@ -240,10 +145,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     request_id = getattr(request.state, "request_id", None)
     return JSONResponse(
         status_code=422,
-        content={
-            "detail": _serializable_errors(exc.errors()),
-            "body": exc.body,
-        },
+        content={"detail": _serializable_errors(exc.errors()), "body": exc.body},
         headers={"X-Request-ID": request_id} if request_id else {},
     )
 
@@ -252,10 +154,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def generic_exception_handler(request: Request, exc: Exception):
     request_id = getattr(request.state, "request_id", None)
     logger.exception(
-        "Unhandled exception for %s %s (request_id=%s)",
-        request.method,
-        request.url.path,
-        request_id,
+        "Unhandled exception for %s %s (request_id=%s)", request.method, request.url.path, request_id
     )
     return JSONResponse(
         status_code=500,
@@ -264,190 +163,36 @@ async def generic_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Models
-class Item(BaseModel):
-    name: str = Field(min_length=1, max_length=255)
-    description: str | None = None
-    price: float = Field(ge=0)
-
-    @field_validator('name')
-    @classmethod
-    def name_must_not_be_whitespace(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError('name must not be blank')
-        return v
-
-
-class HealthResponse(BaseModel):
-    status: str
-    uptime_seconds: int
-
-
-class HelloResponse(BaseModel):
-    message: str
-
-
-class ItemResponse(BaseModel):
-    item_id: int
-    name: str
-    price: float
-
-
-class CreateItemResponse(BaseModel):
-    status: str
-    item: Item
-
-
-class InfoResponse(BaseModel):
-    app_name: str
-    debug: bool
-
-
-class NotificationQueuedResponse(BaseModel):
-    status: str
-
-
-class NotificationRequest(BaseModel):
-    email: EmailStr
-    message: str = Field(min_length=1, max_length=1000)
-
-    @field_validator('message')
-    @classmethod
-    def message_must_not_be_whitespace(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError('message must not be blank')
-        return v
-
-
-# Background task function — simulates a fire-and-forget email notification.
-# async def can also be used here for non-blocking I/O in the background.
-def send_notification_email(email: str, message: str) -> None:
-    time.sleep(0.1)  # Simulate work (e.g., SMTP call)
-    logger.info(json.dumps({"event": "notification_sent", "email": email}))
-
-
-# Routes
 @app.get("/")
 @limiter.limit(settings.rate_limit)
 def root(request: Request):
-    """Serve the main HTML page if dist/index.html exists, otherwise return API info"""
     if os.path.exists("dist/index.html"):
         with open("dist/index.html", "r") as f:
             return HTMLResponse(content=f.read())
-
-    return {
-        "message": "FastAPI Backend",
-        "docs": "/docs",
-        "health": "/health",
-    }
+    return {"message": "FastAPI Backend", "docs": "/docs", "health": "/health"}
 
 
 @app.get("/health", tags=["health"], response_model=HealthResponse)
 async def health_check():
-    """Health check endpoint with uptime"""
-    return {
-        "status": "healthy",
-        "uptime_seconds": int(time.time() - STARTUP_TIME),
-    }
+    return {"status": "healthy", "uptime_seconds": int(time.time() - STARTUP_TIME)}
 
 
 @app.get("/info", tags=["info"], response_model=InfoResponse)
 @limiter.limit(settings.rate_limit)
 async def info(request: Request, s: Settings = Depends(get_settings)):
-    """Application info — demonstrates pydantic-settings dependency injection."""
     return {"app_name": s.app_name, "debug": s.debug}
 
 
 @app.get("/api/hello", response_model=HelloResponse)
 @limiter.limit(settings.rate_limit)
 async def hello(request: Request):
-    """Sample API endpoint"""
     return {"message": "Hello from FastAPI!"}
 
 
-@app.post("/api/items", response_model=CreateItemResponse, status_code=201)
-@limiter.limit(settings.rate_limit)
-async def create_item(request: Request, item: Item):
-    """Create a new item"""
-    return {"status": "created", "item": item}
+app.include_router(items_router)
+app.include_router(todos_router)
+app.include_router(notify_router)
 
-
-@app.get("/api/items/{item_id}", response_model=ItemResponse)
-@limiter.limit(settings.rate_limit)
-async def get_item(request: Request, item_id: int):
-    """Get item by ID"""
-    return {"item_id": item_id, "name": f"Item {item_id}", "price": 99.99}
-
-
-# BackgroundTasks is appropriate for fast, fire-and-forget operations (email hooks,
-# audit logs) that don't need retries or persistence. For retries, persistence, or
-# distributed execution across processes/servers, use a proper task queue (Celery/ARQ).
-@app.post("/api/v1/notify", status_code=202, response_model=NotificationQueuedResponse)
-@limiter.limit(settings.rate_limit)
-async def notify(request: Request, notification: NotificationRequest, background_tasks: BackgroundTasks):
-    """Queue a fire-and-forget email notification."""
-    background_tasks.add_task(send_notification_email, notification.email, notification.message)
-    return {"status": "queued"}
-
-
-# EXAMPLE: Use async def for I/O-bound routes (DB queries, HTTP calls).
-# async routes are non-blocking — the event loop can handle other requests
-# while waiting for I/O to complete.
-#
-# @app.get("/api/example-async")
-# async def example_async_route():
-#     # await db.fetch_one(query)        ← non-blocking DB call
-#     # await httpx_client.get(url)      ← non-blocking HTTP call
-#     return {"message": "Hello from async route"}
-#
-# EXAMPLE: Use def (sync) only for CPU-bound work or sync-only libraries.
-# FastAPI automatically runs sync routes in a threadpool to avoid blocking
-# the event loop.
-#
-# @app.get("/api/example-sync")
-# def example_sync_route():
-#     # result = some_sync_library.compute()  ← CPU-bound or sync-only library
-#     return {"message": "Hello from sync route"}
-
-
-class TodoCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
-
-    @field_validator('title')
-    @classmethod
-    def title_must_not_be_whitespace(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError('title must not be blank')
-        return v
-
-
-class TodoOut(BaseModel):
-    id: int
-    title: str
-    done: bool
-
-    model_config = {"from_attributes": True}
-
-
-# EXAMPLE: Async SQLAlchemy with dependency injection.
-# These routes demonstrate the async database pattern — adapt for your domain.
-@app.get("/api/todos", response_model=list[TodoOut], tags=["todos"])
-@limiter.limit(settings.rate_limit)
-async def list_todos(request: Request, db: AsyncSession = Depends(get_db)):
-    """List all todo items. Demonstrates async SQLAlchemy query via Depends(get_db)."""
-    result = await db.execute(select(TodoItem))
-    return result.scalars().all()
-
-
-@app.post("/api/todos", response_model=TodoOut, status_code=201, tags=["todos"])
-@limiter.limit(settings.rate_limit)
-async def create_todo(request: Request, todo: TodoCreate, db: AsyncSession = Depends(get_db)):
-    """Create a todo item. Demonstrates async SQLAlchemy write via Depends(get_db)."""
-    item = TodoItem(title=todo.title)
-    db.add(item)
-    await db.commit()
-    await db.refresh(item)
-    return item
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

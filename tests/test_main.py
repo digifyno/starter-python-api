@@ -98,7 +98,7 @@ def test_hello_returns_message():
 def test_notify_returns_202():
     from unittest.mock import patch
     from fastapi import BackgroundTasks
-    from main import send_notification_email
+    from routes.notify import send_notification_email
 
     recorded = []
     original_add_task = BackgroundTasks.add_task
@@ -255,7 +255,8 @@ def test_validation_error_response_includes_generated_request_id():
 def test_unhandled_exception_echoes_request_id():
     """generic_exception_handler includes X-Request-ID in response when middleware sets it."""
     from fastapi import FastAPI
-    from main import generic_exception_handler, RequestLoggingMiddleware
+    from main import generic_exception_handler
+    from middleware.request_logging import RequestLoggingMiddleware
 
     isolated = FastAPI()
     isolated.add_exception_handler(Exception, generic_exception_handler)
