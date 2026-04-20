@@ -85,11 +85,23 @@ def test_rate_limit_invalid_format_raises_validation_error(monkeypatch):
     assert "RATE_LIMIT must be in format" in str(exc_info.value)
 
 
+def test_rate_limit_zero_raises_validation_error(monkeypatch):
+    """Settings raises ValidationError when RATE_LIMIT count is 0."""
+    monkeypatch.setenv("RATE_LIMIT", "0/minute")
+
+    from main import Settings
+
+    with pytest.raises(ValidationError) as exc_info:
+        Settings()
+
+    assert "RATE_LIMIT must be in format" in str(exc_info.value)
+
+
 def test_rate_limit_valid_formats(monkeypatch):
     """Settings accepts valid RATE_LIMIT formats."""
     from main import Settings
 
-    for rate in ("100/minute", "10/second", "1000/hour", "5000/day"):
+    for rate in ("100/minute", "10/second", "1000/hour", "5000/day", "1/minute"):
         monkeypatch.setenv("RATE_LIMIT", rate)
         s = Settings()
         assert s.rate_limit == rate

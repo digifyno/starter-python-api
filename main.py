@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     @classmethod
     def rate_limit_must_be_valid_format(cls, v: str) -> str:
         import re
-        pattern = re.compile(r'^\d+/(second|minute|hour|day)s?$', re.IGNORECASE)
+        pattern = re.compile(r'^[1-9]\d*/(second|minute|hour|day)s?$', re.IGNORECASE)
         if not pattern.match(v.strip()):
             raise ValueError(
                 f'RATE_LIMIT must be in format "<count>/<period>" '
