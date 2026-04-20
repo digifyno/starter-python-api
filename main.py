@@ -90,7 +90,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[settings.rate_lim
 async def lifespan(app: FastAPI):
     # Create tables when DATABASE_URL is configured.
     # For production, use Alembic migrations instead of create_all.
-    if os.getenv("DATABASE_URL"):
+    if engine is not None:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
     if not settings.debug and settings.allowed_hosts == ["*"]:
@@ -107,7 +107,8 @@ async def lifespan(app: FastAPI):
         )
     logger.info("Starting up")
     yield
-    await engine.dispose()
+    if engine is not None:
+        await engine.dispose()
     logger.info("Shutting down")
 
 
