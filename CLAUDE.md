@@ -48,7 +48,13 @@ uv run pip-audit
 ## Project Structure
 
 ```
-main.py              # FastAPI app entry point — Settings, middleware, routes, lifespan
+main.py              # FastAPI app entry point — Settings, lifespan, middleware registration, core routes
+routes/__init__.py   # Shared response models (HealthResponse, HelloResponse, InfoResponse)
+routes/items.py      # Item model + GET/POST /api/items routes
+routes/todos.py      # TodoCreate/TodoOut models + GET/POST /api/todos routes
+routes/notify.py     # NotificationRequest model + POST /api/v1/notify route
+middleware/request_logging.py  # RequestLoggingMiddleware (structured JSON logs)
+middleware/security_headers.py # SecurityHeadersMiddleware (7 security headers)
 auth.py              # JWT and bcrypt password helpers
 database.py          # SQLAlchemy async engine, models, get_db dependency
 requirements.txt     # Production dependencies
@@ -56,6 +62,7 @@ requirements-dev.txt # Dev/test dependencies
 tests/               # Test files (conftest, test_main, test_items, test_database, test_logging, test_settings, test_middleware, test_auth)
 dist/                # Static files (optional)
 .env.example         # Environment variable template
+pyproject.toml       # Project metadata and uv configuration
 pytest.ini           # Pytest configuration (asyncio_mode = auto)
 venv.py              # Workaround shim for missing python3.12-venv system package (only needed if system lacks python3.12-venv)
 ```
