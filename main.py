@@ -68,11 +68,6 @@ STARTUP_TIME = time.time()
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[settings.rate_limit])
 
-# Evict route modules so reloading main re-evaluates their @limiter.limit() decorators.
-import sys as _sys
-for _mod in ("routes.items", "routes.todos", "routes.notify"):
-    _sys.modules.pop(_mod, None)
-
 from middleware.request_logging import RequestLoggingMiddleware  # noqa: E402
 from middleware.security_headers import SecurityHeadersMiddleware  # noqa: E402
 from routes.items import router as items_router  # noqa: E402
