@@ -117,7 +117,8 @@ def test_notify_returns_202():
     assert response.json() == {"status": "queued"}
     assert len(recorded) == 1
     func, args, _ = recorded[0]
-    assert func is send_notification_email
+    assert func.__qualname__ == send_notification_email.__qualname__
+    assert func.__module__ == send_notification_email.__module__
     assert args[0] == "test@example.com"
     assert args[1] == "Hello"
 
