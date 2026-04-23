@@ -1,6 +1,5 @@
 import json
 import logging
-import sys
 import time
 
 from fastapi import APIRouter, BackgroundTasks, Request
@@ -42,8 +41,5 @@ def send_notification_email(email: str, message: str) -> None:
 @limiter.limit(settings.rate_limit)
 async def notify(request: Request, notification: NotificationRequest, background_tasks: BackgroundTasks):
     """Queue a fire-and-forget email notification."""
-    # Look up via sys.modules so after a module eviction+reload the spy test
-    # and this handler both reference the same current function object.
-    fn = sys.modules[__name__].send_notification_email
-    background_tasks.add_task(fn, notification.email, notification.message)
+    background_tasks.add_task(send_notification_email, notification.email, notification.message)
     return {"status": "queued"}
