@@ -70,9 +70,9 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[settings.rate_lim
 
 from middleware.request_logging import RequestLoggingMiddleware  # noqa: E402
 from middleware.security_headers import SecurityHeadersMiddleware  # noqa: E402
-from routes.items import router as items_router  # noqa: E402
-from routes.notify import router as notify_router  # noqa: E402
-from routes.todos import router as todos_router  # noqa: E402
+from routes.items import create_router as create_items_router  # noqa: E402
+from routes.notify import create_router as create_notify_router  # noqa: E402
+from routes.todos import create_router as create_todos_router  # noqa: E402
 
 
 @asynccontextmanager
@@ -184,9 +184,9 @@ async def hello(request: Request):
     return {"message": "Hello from FastAPI!"}
 
 
-app.include_router(items_router)
-app.include_router(todos_router)
-app.include_router(notify_router)
+app.include_router(create_items_router(limiter, settings.rate_limit))
+app.include_router(create_todos_router(limiter, settings.rate_limit))
+app.include_router(create_notify_router(limiter, settings.rate_limit))
 
 
 if __name__ == "__main__":

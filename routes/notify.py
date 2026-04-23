@@ -4,10 +4,8 @@ import time
 
 from fastapi import APIRouter, BackgroundTasks, Request
 from pydantic import BaseModel, EmailStr, Field, field_validator
+from slowapi import Limiter
 
-from main import limiter, settings
-
-router = APIRouter(prefix="/api/v1", tags=["notify"])
 logger = logging.getLogger(__name__)
 
 
@@ -34,12 +32,17 @@ def send_notification_email(email: str, message: str) -> None:
     logger.info(json.dumps({"event": "notification_sent", "email": email}))
 
 
-# BackgroundTasks is appropriate for fast, fire-and-forget operations (email hooks,
-# audit logs) that don't need retries or persistence. For retries, persistence, or
-# distributed execution across processes/servers, use a proper task queue (Celery/ARQ).
-@router.post("/notify", status_code=202, response_model=NotificationQueuedResponse)
-@limiter.limit(settings.rate_limit)
-async def notify(request: Request, notification: NotificationRequest, background_tasks: BackgroundTasks):
-    """Queue a fire-and-forget email notification."""
-    background_tasks.add_task(send_notification_email, notification.email, notification.message)
-    return {"status": "queued"}
+def create_router(limiter: Limiter, rate_limit: str) -> APIRouter:
+    router = APIRouter(prefix="/api/v1", tags=["notify"])
+
+    # BackgroundTasks is appropriate for fast, fire-and-forget operations (email hooks,
+    # audit logs) that don't need retries or persistence. For retries, persistence, or
+    # distributed execution across processes/servers, use a proper task queue (Celery/ARQ).
+    @router.post("/notify", status_code=202, response_model=NotificationQueuedResponse)
+    @limiter.limit(rate_limit)
+    async def notify(request: Request, notification: NotificationRequest, background_tasks: BackgroundTasks):
+        """Queue a fire-and-forget email notification."""
+        background_tasks.add_task(send_notification_email, notification.email, notification.message)
+        return {"status": "queued"}
+
+    return router
