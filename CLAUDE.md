@@ -252,32 +252,7 @@ async def list_items(db: AsyncSession = Depends(get_db)):
 
 ### Alembic migrations (production)
 
-```bash
-pip install alembic
-alembic init migrations
-```
-
-In `migrations/env.py`, import your `Base` and set the metadata:
-
-```python
-from database import Base
-target_metadata = Base.metadata
-```
-
-In `alembic.ini`, set `sqlalchemy.url` or override from env:
-
-```python
-# migrations/env.py — override url from environment
-import os
-config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL", "").replace("+asyncpg", "+psycopg2"))
-```
-
-Note: Alembic uses synchronous psycopg2 for migrations even if your app uses asyncpg. Add `psycopg2-binary` to `requirements.txt` when using Alembic.
-
-```bash
-alembic revision --autogenerate -m "initial"
-alembic upgrade head
-```
+Not currently used in this starter. To add: `pip install alembic psycopg2-binary && alembic init migrations`. Set `target_metadata = Base.metadata` in `migrations/env.py` and override `sqlalchemy.url` from `DATABASE_URL` (replace `+asyncpg` with `+psycopg2` for Alembic's sync driver). Then: `alembic revision --autogenerate -m "initial" && alembic upgrade head`.
 
 ### MongoDB (Motor)
 ```bash
@@ -360,25 +335,6 @@ async def expensive_op(request: Request):
 **Configuring rate limits:**
 
 Set `RATE_LIMIT=60/minute` (or any [limits string](https://limits.readthedocs.io/en/stable/quickstart.html)) in `.env` to change the default. This value is wired to `settings.rate_limit` and passed to `Limiter(default_limits=[settings.rate_limit])`.
-
-> **Multi-process deployments (Gunicorn)**: The default in-memory storage is **per-process**. With `-w 4`, each worker tracks its own counter — a client sees 4× the configured limit. For accurate rate limiting in production, either:
-> 1. Run with a single worker (`-w 1`) — loses concurrency.
-> 2. Use a Redis-backed storage backend:
->
-> ```bash
-> pip install limits[redis]
-> ```
->
-> ```python
-> from limits.storage import RedisStorage
-> limiter = Limiter(
->     key_func=get_remote_address,
->     default_limits=[settings.rate_limit],
->     storage_uri="redis://localhost:6379",
-> )
-> ```
->
-> Set `REDIS_URL` in `.env` and pass it to `storage_uri`. Without Redis, rate limiting in multi-worker deployments is not enforceable.
 
 **Configuring trusted hosts (production):**
 
@@ -533,33 +489,7 @@ DATABASE_URL=postgresql+asyncpg://user:pass@localhost/test_db pytest tests/
 
 **Transaction isolation — rollback fixture:**
 
-For integration tests that mutate DB state, wrap each test in a transaction that rolls back on teardown to avoid test pollution:
-
-```python
-# tests/conftest.py
-import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-from database import engine, Base
-
-@pytest.fixture
-async def db_session():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        async with AsyncSession(conn) as session:
-            yield session
-            await session.rollback()
-```
-
-Use `db_session` in tests instead of the production `get_db` dependency:
-
-```python
-async def test_create_item(db_session):
-    item = MyModel(name="test")
-    db_session.add(item)
-    await db_session.flush()
-    assert item.id is not None
-    # rolled back automatically after the test
-```
+For integration tests that mutate DB state, use the `db_session` fixture from `tests/conftest.py` — it wraps each test in a transaction that rolls back on teardown.
 
 ### Async tests (primary pattern)
 
@@ -586,27 +516,7 @@ async def test_health(async_client):
     assert response.status_code == 200
 ```
 
-**Testing rate limits**: slowapi stores hit counts in memory on the `limiter` instance. Tests that exhaust the limit leave state behind and will cause subsequent tests to see stale counts. Use `monkeypatch` + module reload to get a fresh limiter with a low limit, avoiding cross-test pollution:
-
-```python
-# tests/test_middleware.py
-from importlib import reload
-from fastapi.testclient import TestClient
-
-def test_rate_limit_exceeded(monkeypatch):
-    """slowapi rate limiter returns 429 when request limit is exceeded."""
-    monkeypatch.setenv("RATE_LIMIT", "2/minute")
-    import main as main_module
-
-    reload(main_module)
-    rl_client = TestClient(main_module.app)
-    responses = [rl_client.get("/api/hello") for _ in range(4)]
-    status_codes = [r.status_code for r in responses]
-    assert 429 in status_codes, "Rate limiter should return 429 when limit is exceeded"
-    assert 200 in status_codes, "Rate limiter should allow requests within the limit"
-```
-
-> **Why reload?** The `limiter` object is module-level state in `main.py`. Without a reload, hit counts from previous tests accumulate and can cause unrelated tests to receive unexpected 429 responses. The `monkeypatch` + `reload` pattern creates a fresh module with a clean limiter and a low `RATE_LIMIT` so the test doesn't need to fire 100+ requests.
+**Testing rate limits**: slowapi stores hit counts in module-level state. Tests that exhaust the limit pollute subsequent tests — use `monkeypatch` + `importlib.reload(main)` to get a fresh limiter. See `tests/test_middleware.py` for the full pattern.
 
 **Testing Settings defaults**: `Settings()` reads environment variables (and `.env`) at instantiation. Without clearing them first, a developer's local `.env` can contaminate tests that verify default values. Use `monkeypatch.delenv()` to clear relevant env vars before constructing `Settings`:
 
