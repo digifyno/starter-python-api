@@ -100,26 +100,8 @@ app.include_router(items_router)
 ```
 
 ### Pydantic Models
-```python
-from pydantic import BaseModel, Field, field_validator
 
-class User(BaseModel):
-    name: str = Field(min_length=1)  # prevent empty strings, but see note below
-    email: str
-    age: int = Field(gt=0, le=120)
-
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "name": "John Doe",
-                "email": "john@example.com",
-                "age": 30
-            }
-        }
-    }
-```
-
-> **Note:** `min_length=1` alone allows whitespace-only strings like `"   "`. Use a `field_validator` to reject those:
+> **Note:** `min_length=1` alone allows whitespace-only strings. Use a `field_validator` to reject those:
 
 ```python
 from pydantic import BaseModel, Field, field_validator
@@ -148,17 +130,6 @@ async def fetch_external():
 ```
 
 ### Dependency Injection
-```python
-from fastapi import Depends
-
-def get_current_user(token: str):
-    # Verify token, return user
-    return {"user_id": 1}
-
-@app.get("/api/me")
-async def read_users_me(user = Depends(get_current_user)):
-    return user
-```
 
 #### Settings as a dependency
 
@@ -281,32 +252,7 @@ async def list_items(db: AsyncSession = Depends(get_db)):
 
 ### Alembic migrations (production)
 
-```bash
-pip install alembic
-alembic init migrations
-```
-
-In `migrations/env.py`, import your `Base` and set the metadata:
-
-```python
-from database import Base
-target_metadata = Base.metadata
-```
-
-In `alembic.ini`, set `sqlalchemy.url` or override from env:
-
-```python
-# migrations/env.py — override url from environment
-import os
-config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL", "").replace("+asyncpg", "+psycopg2"))
-```
-
-Note: Alembic uses synchronous psycopg2 for migrations even if your app uses asyncpg. Add `psycopg2-binary` to `requirements.txt` when using Alembic.
-
-```bash
-alembic revision --autogenerate -m "initial"
-alembic upgrade head
-```
+Not currently used in this starter. To add: `pip install alembic psycopg2-binary && alembic init migrations`. Set `target_metadata = Base.metadata` in `migrations/env.py` and override `sqlalchemy.url` from `DATABASE_URL` (replace `+asyncpg` with `+psycopg2` for Alembic's sync driver). Then: `alembic revision --autogenerate -m "initial" && alembic upgrade head`.
 
 ### MongoDB (Motor)
 ```bash
@@ -347,14 +293,7 @@ All responses include these headers (set in `main.py`, `SecurityHeadersMiddlewar
 | `Permissions-Policy` | `geolocation=(), microphone=(), camera=()` |
 | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
 
-**Production customization notes:**
-
-- **CSP `style-src 'unsafe-inline'`**: Required for inline styles (e.g., CSS-in-JS, some component libraries). If your app uses an external stylesheet CDN, add `style-src 'self' 'unsafe-inline' https://cdn.example.com`. To tighten further, replace `'unsafe-inline'` with a nonce or hash.
-- **CSP `img-src 'self' data:`**: `data:` allows base64-encoded images. Add external image hosts as needed (e.g., `img-src 'self' data: https://images.example.com`).
-- **HSTS**: Also configure at the nginx level (`add_header Strict-Transport-Security`) so the header is sent on the initial HTTP→HTTPS redirect before the app processes the request.
-- **`frame-ancestors 'none'`**: Redundant with `X-Frame-Options: DENY` but required for CSP-aware browsers. Both are set for maximum compatibility.
-
-To customize these headers, edit `SecurityHeadersMiddleware.dispatch()` in `main.py`.
+To customize these headers, edit `SecurityHeadersMiddleware.dispatch()` in `middleware/security_headers.py`.
 
 ### Rate Limiting Setup
 
@@ -396,25 +335,6 @@ async def expensive_op(request: Request):
 **Configuring rate limits:**
 
 Set `RATE_LIMIT=60/minute` (or any [limits string](https://limits.readthedocs.io/en/stable/quickstart.html)) in `.env` to change the default. This value is wired to `settings.rate_limit` and passed to `Limiter(default_limits=[settings.rate_limit])`.
-
-> **Multi-process deployments (Gunicorn)**: The default in-memory storage is **per-process**. With `-w 4`, each worker tracks its own counter — a client sees 4× the configured limit. For accurate rate limiting in production, either:
-> 1. Run with a single worker (`-w 1`) — loses concurrency.
-> 2. Use a Redis-backed storage backend:
->
-> ```bash
-> pip install limits[redis]
-> ```
->
-> ```python
-> from limits.storage import RedisStorage
-> limiter = Limiter(
->     key_func=get_remote_address,
->     default_limits=[settings.rate_limit],
->     storage_uri="redis://localhost:6379",
-> )
-> ```
->
-> Set `REDIS_URL` in `.env` and pass it to `storage_uri`. Without Redis, rate limiting in multi-worker deployments is not enforceable.
 
 **Configuring trusted hosts (production):**
 
@@ -569,96 +489,17 @@ DATABASE_URL=postgresql+asyncpg://user:pass@localhost/test_db pytest tests/
 
 **Transaction isolation — rollback fixture:**
 
-For integration tests that mutate DB state, wrap each test in a transaction that rolls back on teardown to avoid test pollution:
-
-```python
-# tests/conftest.py
-import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-from database import engine, Base
-
-@pytest.fixture
-async def db_session():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        async with AsyncSession(conn) as session:
-            yield session
-            await session.rollback()
-```
-
-Use `db_session` in tests instead of the production `get_db` dependency:
-
-```python
-async def test_create_item(db_session):
-    item = MyModel(name="test")
-    db_session.add(item)
-    await db_session.flush()
-    assert item.id is not None
-    # rolled back automatically after the test
-```
+For integration tests that mutate DB state, use the `db_session` fixture from `tests/conftest.py` — it wraps each test in a transaction that rolls back on teardown.
 
 ### Async tests (primary pattern)
 
 The project uses `asyncio_mode = auto` in `pytest.ini`, so **no `@pytest.mark.asyncio` decorator is needed** — any `async def` test function runs automatically under asyncio.
 
-Use `AsyncClient` with `ASGITransport` to test the full ASGI stack (middleware, lifespan, async DB sessions) without starting a real server:
+Use `AsyncClient` with `ASGITransport` to test the full ASGI stack without starting a real server. The `async_client` fixture is defined in `tests/conftest.py`.
 
-```python
-# tests/conftest.py
-import pytest
-from httpx import AsyncClient, ASGITransport
-from main import app
+**Testing rate limits**: slowapi stores hit counts in module-level state. Tests that exhaust the limit pollute subsequent tests — use `monkeypatch` + `importlib.reload(main)` to get a fresh limiter. See `tests/test_middleware.py` for the full pattern.
 
-@pytest.fixture
-async def async_client():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
-```
-
-```python
-# tests/test_main.py
-async def test_health(async_client):
-    response = await async_client.get("/health")
-    assert response.status_code == 200
-```
-
-**Testing rate limits**: slowapi stores hit counts in memory on the `limiter` instance. Tests that exhaust the limit leave state behind and will cause subsequent tests to see stale counts. Use `monkeypatch` + module reload to get a fresh limiter with a low limit, avoiding cross-test pollution:
-
-```python
-# tests/test_middleware.py
-from importlib import reload
-from fastapi.testclient import TestClient
-
-def test_rate_limit_exceeded(monkeypatch):
-    """slowapi rate limiter returns 429 when request limit is exceeded."""
-    monkeypatch.setenv("RATE_LIMIT", "2/minute")
-    import main as main_module
-
-    reload(main_module)
-    rl_client = TestClient(main_module.app)
-    responses = [rl_client.get("/api/hello") for _ in range(4)]
-    status_codes = [r.status_code for r in responses]
-    assert 429 in status_codes, "Rate limiter should return 429 when limit is exceeded"
-    assert 200 in status_codes, "Rate limiter should allow requests within the limit"
-```
-
-> **Why reload?** The `limiter` object is module-level state in `main.py`. Without a reload, hit counts from previous tests accumulate and can cause unrelated tests to receive unexpected 429 responses. The `monkeypatch` + `reload` pattern creates a fresh module with a clean limiter and a low `RATE_LIMIT` so the test doesn't need to fire 100+ requests.
-
-**Testing Settings defaults**: `Settings()` reads environment variables (and `.env`) at instantiation. Without clearing them first, a developer's local `.env` can contaminate tests that verify default values. Use `monkeypatch.delenv()` to clear relevant env vars before constructing `Settings`:
-
-```python
-def test_settings_defaults(monkeypatch):
-    """Settings class has sensible defaults without any env vars."""
-    for var in ("SECRET_KEY", "DEBUG", "APP_NAME", "ALLOWED_ORIGINS", "ALLOWED_HOSTS", "RATE_LIMIT"):
-        monkeypatch.delenv(var, raising=False)
-    from main import Settings
-
-    s = Settings()
-    assert s.app_name == "FastAPI Starter"
-    assert s.debug is False
-```
-
-> **Why**: Without `monkeypatch.delenv()`, a `.env` file with custom values (e.g. `APP_NAME=MyApp`) silently overrides the expected defaults and the test passes locally but describes the wrong behavior. `raising=False` makes the call a no-op when the variable is not set.
+**Testing Settings defaults**: `Settings()` reads `.env` at instantiation. Use `monkeypatch.delenv()` to clear relevant env vars before constructing `Settings` in tests — otherwise local `.env` values silently override expected defaults.
 
 ### Sync alternative (quick checks)
 
@@ -685,22 +526,6 @@ gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 ```
 
 > **Rate limiting**: The default in-memory limiter is not shared across workers. See [Rate Limiting Setup](#rate-limiting-setup) for multi-worker configuration.
-
-### systemd Service
-```ini
-[Unit]
-Description=FastAPI App
-After=network.target
-
-[Service]
-User=www-data
-WorkingDirectory=/var/www/myapp
-ExecStart=/var/www/myapp/venv/bin/gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
 
 ## Interactive Docs
 
