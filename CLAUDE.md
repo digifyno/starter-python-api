@@ -1,3 +1,9 @@
+<!-- rsi-worker-metadata
+  workerId=f6e699c3-c780-4831-94f9-34b066202695
+  productId=a2a823c6-2271-4464-9f93-9cd2f8a16a61
+  scopeConfigHash=9d83271ad105645b
+  generatedAt=2026-04-25T09:36:25.654Z
+-->
 # Python FastAPI Starter - Claude Development Guide
 
 ## Stack
