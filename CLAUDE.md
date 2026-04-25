@@ -100,26 +100,8 @@ app.include_router(items_router)
 ```
 
 ### Pydantic Models
-```python
-from pydantic import BaseModel, Field, field_validator
 
-class User(BaseModel):
-    name: str = Field(min_length=1)  # prevent empty strings, but see note below
-    email: str
-    age: int = Field(gt=0, le=120)
-
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "name": "John Doe",
-                "email": "john@example.com",
-                "age": 30
-            }
-        }
-    }
-```
-
-> **Note:** `min_length=1` alone allows whitespace-only strings like `"   "`. Use a `field_validator` to reject those:
+> **Note:** `min_length=1` alone allows whitespace-only strings. Use a `field_validator` to reject those:
 
 ```python
 from pydantic import BaseModel, Field, field_validator
@@ -148,17 +130,6 @@ async def fetch_external():
 ```
 
 ### Dependency Injection
-```python
-from fastapi import Depends
-
-def get_current_user(token: str):
-    # Verify token, return user
-    return {"user_id": 1}
-
-@app.get("/api/me")
-async def read_users_me(user = Depends(get_current_user)):
-    return user
-```
 
 #### Settings as a dependency
 
@@ -347,14 +318,7 @@ All responses include these headers (set in `main.py`, `SecurityHeadersMiddlewar
 | `Permissions-Policy` | `geolocation=(), microphone=(), camera=()` |
 | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
 
-**Production customization notes:**
-
-- **CSP `style-src 'unsafe-inline'`**: Required for inline styles (e.g., CSS-in-JS, some component libraries). If your app uses an external stylesheet CDN, add `style-src 'self' 'unsafe-inline' https://cdn.example.com`. To tighten further, replace `'unsafe-inline'` with a nonce or hash.
-- **CSP `img-src 'self' data:`**: `data:` allows base64-encoded images. Add external image hosts as needed (e.g., `img-src 'self' data: https://images.example.com`).
-- **HSTS**: Also configure at the nginx level (`add_header Strict-Transport-Security`) so the header is sent on the initial HTTP→HTTPS redirect before the app processes the request.
-- **`frame-ancestors 'none'`**: Redundant with `X-Frame-Options: DENY` but required for CSP-aware browsers. Both are set for maximum compatibility.
-
-To customize these headers, edit `SecurityHeadersMiddleware.dispatch()` in `main.py`.
+To customize these headers, edit `SecurityHeadersMiddleware.dispatch()` in `middleware/security_headers.py`.
 
 ### Rate Limiting Setup
 
