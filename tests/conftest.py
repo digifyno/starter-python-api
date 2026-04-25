@@ -15,6 +15,14 @@ from httpx import AsyncClient, ASGITransport
 from main import app
 
 
+@pytest.fixture(autouse=True)
+def evict_route_modules():
+    """Evict route modules before each test so reload(main) re-binds @limiter.limit()."""
+    for mod in ("routes.items", "routes.todos", "routes.notify"):
+        sys.modules.pop(mod, None)
+    yield
+
+
 @pytest.fixture
 async def async_client():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
