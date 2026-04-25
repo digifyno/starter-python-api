@@ -495,44 +495,11 @@ For integration tests that mutate DB state, use the `db_session` fixture from `t
 
 The project uses `asyncio_mode = auto` in `pytest.ini`, so **no `@pytest.mark.asyncio` decorator is needed** — any `async def` test function runs automatically under asyncio.
 
-Use `AsyncClient` with `ASGITransport` to test the full ASGI stack (middleware, lifespan, async DB sessions) without starting a real server:
-
-```python
-# tests/conftest.py
-import pytest
-from httpx import AsyncClient, ASGITransport
-from main import app
-
-@pytest.fixture
-async def async_client():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
-```
-
-```python
-# tests/test_main.py
-async def test_health(async_client):
-    response = await async_client.get("/health")
-    assert response.status_code == 200
-```
+Use `AsyncClient` with `ASGITransport` to test the full ASGI stack without starting a real server. The `async_client` fixture is defined in `tests/conftest.py`.
 
 **Testing rate limits**: slowapi stores hit counts in module-level state. Tests that exhaust the limit pollute subsequent tests — use `monkeypatch` + `importlib.reload(main)` to get a fresh limiter. See `tests/test_middleware.py` for the full pattern.
 
-**Testing Settings defaults**: `Settings()` reads environment variables (and `.env`) at instantiation. Without clearing them first, a developer's local `.env` can contaminate tests that verify default values. Use `monkeypatch.delenv()` to clear relevant env vars before constructing `Settings`:
-
-```python
-def test_settings_defaults(monkeypatch):
-    """Settings class has sensible defaults without any env vars."""
-    for var in ("SECRET_KEY", "DEBUG", "APP_NAME", "ALLOWED_ORIGINS", "ALLOWED_HOSTS", "RATE_LIMIT"):
-        monkeypatch.delenv(var, raising=False)
-    from main import Settings
-
-    s = Settings()
-    assert s.app_name == "FastAPI Starter"
-    assert s.debug is False
-```
-
-> **Why**: Without `monkeypatch.delenv()`, a `.env` file with custom values (e.g. `APP_NAME=MyApp`) silently overrides the expected defaults and the test passes locally but describes the wrong behavior. `raising=False` makes the call a no-op when the variable is not set.
+**Testing Settings defaults**: `Settings()` reads `.env` at instantiation. Use `monkeypatch.delenv()` to clear relevant env vars before constructing `Settings` in tests — otherwise local `.env` values silently override expected defaults.
 
 ### Sync alternative (quick checks)
 
